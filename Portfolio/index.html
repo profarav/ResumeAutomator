@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arav Lohe — Software Engineer</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Variables ─────────────────────────────────────────── */
+    :root {
+      --gold:   #E9B84A;
+      --black:  #111111;
+      --cream:  #F7F2E4;
+      --white:  #FFFFFF;
+      --ff-display: 'Bebas Neue', sans-serif;
+      --ff-body:    'Barlow', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--gold);
+      color: var(--black);
+      font-family: var(--ff-body);
+      overflow-x: hidden;
+    }
+
+    /* ─── Nav ───────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1.4rem 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .nav-logo {
+      font-family: var(--ff-display);
+      font-size: 1.3rem;
+      letter-spacing: 0.12em;
+      color: var(--black);
+      text-decoration: none;
+      pointer-events: all;
+    }
+
+    /* ─── Big menu section ──────────────────────────────────── */
+    #nav-menu {
+      background: var(--gold);
+      padding: 5rem 3rem 6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .menu-link {
+      font-family: var(--ff-display);
+      font-size: clamp(4.5rem, 13vw, 12rem);
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: var(--black);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      transition: color 0.18s ease;
+      cursor: pointer;
+    }
+    .menu-link:hover { color: var(--white); }
+
+    /* Filled circle replacing "O" */
+    .o {
+      display: inline-block;
+      width: 0.72em;
+      height: 0.72em;
+      background: var(--black);
+      border-radius: 50%;
+      margin: 0 0.03em;
+      flex-shrink: 0;
+      position: relative;
+      bottom: 0.02em;
+      transition: background 0.18s ease;
+    }
+    .menu-link:hover .o { background: var(--white); }
+
+    /* ─── Hero ──────────────────────────────────────────────── */
+    #hero {
+      background: var(--gold);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5rem 3rem 4rem;
+      overflow: hidden;
+    }
+
+    #nav-menu {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      margin-top: 3rem;
+    }
+
+    /* Name rows */
+    .name-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--ff-display);
+      font-size: clamp(4rem, 19vw, 20rem);
+      letter-spacing: 0.04em;
+      line-height: 0.88;
+      color: var(--black);
+      white-space: nowrap;
+    }
+
+    /* Pill toggle — inline element that replaces a letter */
+    .t {
+      display: inline-flex;
+      align-items: center;
+      background: var(--white);
+      border-radius: 9999px;
+      width:  1.05em;
+      height: 0.62em;
+      margin: 0 0.03em;
+      flex-shrink: 0;
+      position: relative;
+      bottom: 0.02em;
+    }
+    .t .d {
+      position: absolute;
+      left: 0.075em;
+      top: 50%;
+      transform: translateY(-50%) translateX(0);
+      width:  0.48em;
+      height: 0.48em;
+      background: var(--black);
+      border-radius: 50%;
+      animation: dotToggle 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    /* Stagger second pill dot so they don't move in sync */
+    .name-row:last-child .t .d,
+    .nr2 .t .d {
+      animation-delay: -1.4s;
+    }
+    @keyframes dotToggle {
+      0%, 18%  { transform: translateY(-50%) translateX(0); }
+      42%, 58% { transform: translateY(-50%) translateX(0.42em); }
+      82%, 100%{ transform: translateY(-50%) translateX(0); }
+    }
+
+    /* Marquee ticker — black pill between the two name rows */
+    .ticker-wrap {
+      width: 100%;
+      background: var(--black);
+      border-radius: 9999px;
+      padding: 0.65rem 0;
+      overflow: hidden;
+      margin: 1.1rem 0;
+    }
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: ticker 22s linear infinite;
+    }
+    .ticker-track:hover { animation-play-state: paused; }
+    .ticker-half {
+      display: flex;
+      flex-shrink: 0;
+    }
+    .t-item {
+      font-family: var(--ff-body);
+      font-weight: 600;
+      font-size: clamp(0.7rem, 1.1vw, 0.95rem);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--gold);
+      padding: 0 1.6rem;
+      white-space: nowrap;
+    }
+    .t-sep {
+      color: rgba(233, 184, 74, 0.35);
+      padding: 0;
+    }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ─── Portfolio Section ──────────────────────────────────── */
+    #projects {
+      background: var(--cream);
+      padding: 5rem 3rem 6rem;
+    }
+
+    /* "PORTFOLIO" title with pill replacing the O */
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--ff-display);
+      font-size: clamp(3rem, 10vw, 9rem);
+      letter-spacing: 0.04em;
+      color: var(--black);
+      margin-bottom: 3.5rem;
+    }
+    /* Pill for section title uses gold bg */
+    .t-gold {
+      display: inline-flex;
+      align-items: center;
+      background: var(--gold);
+      border-radius: 9999px;
+      width:  1.05em;
+      height: 0.62em;
+      margin: 0 0.03em;
+      flex-shrink: 0;
+      position: relative;
+      bottom: 0.02em;
+    }
+    .t-gold .d {
+      position: absolute;
+      left: 0.075em;
+      top: 50%;
+      transform: translateY(-50%) translateX(0);
+      width:  0.48em;
+      height: 0.48em;
+      background: var(--black);
+      border-radius: 50%;
+      animation: dotToggle 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    .t-gold:last-child .d { animation-delay: -1.4s; }
+
+    /* Pill cards grid */
+    .pill-row {
+      display: flex;
+      gap: 1.25rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      justify-content: center;
+    }
+    .pill-row::-webkit-scrollbar { display: none; }
+
+    .pcard {
+      flex-shrink: 0;
+      width: 210px;
+      height: 330px;
+      border-radius: 150px;
+      overflow: hidden;
+      position: relative;
+      text-decoration: none;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+    }
+    .pcard:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.22);
+    }
+
+    .pcard-bg { position: absolute; inset: 0; }
+    .pcard-shade {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 55%, transparent 100%);
+    }
+    .pcard-body {
+      position: absolute;
+      bottom: 3.5rem;
+      left: 1.8rem;
+      right: 1.8rem;
+    }
+    .pcard-badge {
+      display: inline-block;
+      background: #FFD700;
+      color: #000;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.55rem;
+      border-radius: 100px;
+      margin-bottom: 0.45rem;
+    }
+    .pcard-title {
+      font-family: var(--ff-display);
+      font-size: 1.35rem;
+      letter-spacing: 0.07em;
+      color: #fff;
+      line-height: 1.1;
+    }
+    .pcard-sub {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.95);
+      margin-top: 0.35rem;
+    }
+
+    /* Card background styles */
+    .bg-pathways {
+      background: linear-gradient(155deg, #1a237e 0%, #283593 40%, #3949ab 100%);
+    }
+    .bg-pathways::after {
+      content: '';
+      position: absolute;
+      top: 1.5rem; right: 1.2rem;
+      width: 70px; height: 70px;
+      border: 2px solid rgba(255,255,255,0.12);
+      border-radius: 50%;
+    }
+    .bg-sportsbot {
+      background: linear-gradient(155deg, #0d3b17 0%, #1b5e20 50%, #2e7d32 100%);
+    }
+    .bg-sportsbot::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 90px; height: 90px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 50%;
+      box-shadow: 0 0 0 20px rgba(255,255,255,0.04), 0 0 0 40px rgba(255,255,255,0.02);
+    }
+    .bg-robodebug {
+      background: linear-gradient(155deg, #1c2730 0%, #263238 50%, #37474f 100%);
+    }
+    .bg-careertriage {
+      background: linear-gradient(155deg, #2d0059 0%, #4a148c 50%, #6a1b9a 100%);
+    }
+    .bg-brand {
+      background: linear-gradient(155deg, #2e1503 0%, #4e2c0d 50%, #6d4c41 100%);
+    }
+
+    /* Decorative grid line on robodebug */
+    .bg-robodebug::before {
+      content: '';
+      position: absolute;
+      top: 1rem; left: 1rem; right: 1rem; bottom: 5rem;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .tag {
+      padding: 0.22rem 0.7rem;
+      background: rgba(17,17,17,0.08);
+      border-radius: 100px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+    }
+
+    /* ─── Contact ───────────────────────────────────────────── */
+    #contact {
+      background: var(--black);
+      padding: 6rem 3rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .contact-email {
+      font-family: var(--ff-display);
+      font-size: clamp(1.2rem, 3.5vw, 3rem);
+      letter-spacing: 0.08em;
+      color: var(--white);
+      text-decoration: none;
+      display: inline-block;
+      margin-bottom: 3.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      padding-bottom: 0.4rem;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .contact-email:hover { color: var(--gold); border-color: var(--gold); }
+    .socials {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+    }
+    .social {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .social:hover { color: var(--gold); }
+
+    /* ─── Footer ────────────────────────────────────────────── */
+    footer {
+      background: var(--black);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 1.5rem 3rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    footer p {
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.25);
+      text-transform: uppercase;
+    }
+
+    /* ─── Reveal animations ─────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s cubic-bezier(0.25,0.46,0.45,0.94),
+                  transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94);
+    }
+    .reveal.in { opacity: 1; transform: none; }
+
+    .pcard.reveal { transform: translateY(28px) scale(0.97); }
+    .pcard.in     { opacity: 1; transform: none; }
+
+    /* Hero reveal */
+    .name-row { opacity: 0; transform: translateY(30px); }
+    .name-row.in { opacity: 1; transform: none; }
+    .nr1 { transition: opacity 0.7s 0.05s ease, transform 0.7s 0.05s ease; }
+    .nr2 { transition: opacity 0.7s 0.2s  ease, transform 0.7s 0.2s  ease; }
+    .nr3 { transition: opacity 0.7s 0.35s ease, transform 0.7s 0.35s ease; }
+    .ticker-wrap { opacity: 0; transition: opacity 0.7s 0.3s ease; }
+    .ticker-wrap.in { opacity: 1; }
+
+    /* ─── Projects: title always visible, cards hidden ─────── */
+    #projects {
+      background: var(--cream);
+      padding: 5rem 3rem 0;
+    }
+    #projects.revealed {
+      padding-bottom: 6rem;
+    }
+
+    /* Clickable section title */
+    .section-title {
+      cursor: pointer;
+      user-select: none;
+    }
+    .section-title:hover .t-gold,
+    .section-title:hover .t-gold .d {
+      opacity: 0.75;
+    }
+    .section-title .click-hint {
+      display: block;
+      font-family: var(--ff-body);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(17,17,17,0.35);
+      margin-top: 0.75rem;
+      transition: color 0.2s;
+    }
+    .section-title:hover .click-hint { color: rgba(17,17,17,0.7); }
+    .section-title.opened .click-hint { display: none; }
+
+    /* ─── Hero expandable panels ───────────────────────────── */
+    .hero-panel {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      width: 100%;
+      text-align: center;
+      transition: max-height 0.5s cubic-bezier(0.25,0.46,0.45,0.94),
+                  opacity 0.4s ease,
+                  margin 0.4s ease;
+      margin: 0;
+    }
+    .hero-panel.open {
+      max-height: 200px;
+      opacity: 1;
+      margin: 1rem 0 0.5rem;
+    }
+    .hero-panel p {
+      font-size: 1rem;
+      line-height: 1.75;
+      color: rgba(17,17,17,0.65);
+      max-width: 46ch;
+      margin: 0 auto;
+    }
+
+    /* Cards + panel collapse until revealed */
+    .projects-body {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.8s cubic-bezier(0.25,0.46,0.45,0.94),
+                  opacity 0.55s ease,
+                  margin-top 0.5s ease;
+      margin-top: 0;
+    }
+    .projects-body.revealed {
+      max-height: 1600px;
+      opacity: 1;
+      margin-top: 3.5rem;
+    }
+
+    /* ─── Mobile ────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav { padding: 1.2rem 1.4rem; }
+      .nav-links { gap: 1.4rem; }
+      #hero    { padding: 5.5rem 1.4rem 3rem; }
+      #contact { padding: 4rem 1.4rem; }
+      footer   { padding: 1.4rem; flex-direction: column; gap: 0.4rem; text-align: center; }
+      .pill-row { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Nav ─────────────────────────────────────────────── -->
+  <nav>
+    <a href="#hero" class="nav-logo">A.L.</a>
+  </nav>
+
+  <!-- ─── Hero ─────────────────────────────────────────────── -->
+  <section id="hero">
+
+    <!-- Row 1: AR + pill + V  (pill = the "A" in ARAV) -->
+    <div class="name-row nr1">
+      AR<span class="t"><span class="d"></span></span>V
+    </div>
+
+    <!-- Scrolling ticker -->
+    <div class="ticker-wrap">
+      <div class="ticker-track">
+        <div class="ticker-half">
+          <span class="t-item">Software Engineer</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Full Stack</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Multi-Agent AI</span><span class="t-item t-sep">·</span>
+          <span class="t-item">UT Austin</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Python · React</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Claude API</span><span class="t-item t-sep">·</span>
+        </div>
+        <div class="ticker-half" aria-hidden="true">
+          <span class="t-item">Software Engineer</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Full Stack</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Multi-Agent AI</span><span class="t-item t-sep">·</span>
+          <span class="t-item">UT Austin</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Python · React</span><span class="t-item t-sep">·</span>
+          <span class="t-item">Claude API</span><span class="t-item t-sep">·</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: L + pill + HE  (pill = the "O" in LOHE) -->
+    <div class="name-row nr2">
+      L<span class="t"><span class="d"></span></span>HE
+    </div>
+
+    <!-- Big nav links at the bottom of hero -->
+    <div id="nav-menu">
+      <a class="menu-link" id="nav-portfolio">PORTF<span class="o"></span>LI<span class="o"></span></a>
+
+      <a class="menu-link" id="nav-contact">C<span class="o"></span>NTACT</a>
+      <div class="hero-panel" id="contact-panel">
+        <a href="mailto:aravlohe@utexas.edu" class="contact-email">aravlohe@utexas.edu</a>
+        <div class="socials">
+          <a href="https://github.com/profarav" target="_blank" class="social">GitHub</a>
+          <a href="https://www.linkedin.com/in/aravlohe/" target="_blank" class="social">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ─── Projects ─────────────────────────────────────────── -->
+  <section id="projects">
+
+    <!-- Cards + detail panel hidden until nav click -->
+    <div class="projects-body" id="projects-body">
+
+    <!-- Pill cards -->
+    <div class="pill-row">
+
+      <a class="pcard reveal" href="https://robodebug.vercel.app/" target="_blank" rel="noopener">
+        <div class="pcard-bg bg-robodebug"></div>
+        <div class="pcard-shade"></div>
+        <div class="pcard-body">
+          <div class="pcard-title">RoboDebug</div>
+          <div class="pcard-sub">ROS 2 · Next.js</div>
+        </div>
+      </a>
+
+      <a class="pcard reveal" href="https://sports-bot-fawn.vercel.app/" target="_blank" rel="noopener">
+        <div class="pcard-bg bg-sportsbot"></div>
+        <div class="pcard-shade"></div>
+        <div class="pcard-body">
+          <div class="pcard-title">SportsBot</div>
+          <div class="pcard-sub">Claude API · LangGraph</div>
+        </div>
+      </a>
+
+      <a class="pcard reveal" href="https://career-triage.vercel.app/" target="_blank" rel="noopener">
+        <div class="pcard-bg bg-careertriage"></div>
+        <div class="pcard-shade"></div>
+        <div class="pcard-body">
+          <div class="pcard-title">CareerTriage</div>
+          <div class="pcard-sub">React · Claude API</div>
+        </div>
+      </a>
+
+      <a class="pcard reveal" href="https://github.com/profarav/brand-brief-generator" target="_blank" rel="noopener">
+        <div class="pcard-bg bg-brand"></div>
+        <div class="pcard-shade"></div>
+        <div class="pcard-body">
+          <div class="pcard-title">Brand Brief Gen</div>
+          <div class="pcard-sub">Python · Flask</div>
+        </div>
+      </a>
+
+      <a class="pcard reveal" href="https://github.com/ir272/Pathways" target="_blank" rel="noopener">
+        <div class="pcard-bg bg-pathways"></div>
+        <div class="pcard-shade"></div>
+        <div class="pcard-body">
+          <div class="pcard-title">Pathways</div>
+          <div class="pcard-sub">Next.js · TypeScript</div>
+        </div>
+      </a>
+
+    </div>
+
+    </div> <!-- /projects-body -->
+
+  </section>
+
+
+  <!-- ─── Scripts ───────────────────────────────────────────── -->
+  <script>
+    // ── Hero entrance ──────────────────────────────────────────
+    window.addEventListener('load', () => {
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.name-row, .ticker-wrap').forEach(el => el.classList.add('in'));
+      });
+    });
+
+    // ── Toggle helper ──────────────────────────────────────────
+    function togglePanel(panelId) {
+      const panel = document.getElementById(panelId);
+      panel.classList.toggle('open');
+    }
+
+    // ── Portfolio reveal ───────────────────────────────────────
+    document.getElementById('nav-portfolio').addEventListener('click', () => {
+      const body = document.getElementById('projects-body');
+      const sec  = document.getElementById('projects');
+      if (!body.classList.contains('revealed')) {
+        body.classList.add('revealed');
+        sec.classList.add('revealed');
+        setTimeout(() => {
+          document.querySelectorAll('#projects .reveal').forEach(el => io.observe(el));
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      } else {
+        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    // ── Contact toggle ─────────────────────────────────────────
+    document.getElementById('nav-contact').addEventListener('click', () => {
+      togglePanel('contact-panel');
+      // Close about if open
+      document.getElementById('about-panel').classList.remove('open');
+    });
+
+    // ── Scroll reveal ──────────────────────────────────────────
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const cards = Array.from(document.querySelectorAll('.pcard'));
+        const idx = cards.indexOf(entry.target);
+        const delay = idx >= 0 ? idx * 90 : 0;
+        setTimeout(() => entry.target.classList.add('in'), delay);
+        io.unobserve(entry.target);
+      });
+    }, { threshold: 0.1 });
+
+    // Observe reveal elements outside #projects immediately; #projects elements observed on reveal
+    document.querySelectorAll('.reveal').forEach(el => {
+      if (!el.closest('#projects')) io.observe(el);
+    });
+
+  </script>
+
+</body>
+</html>
