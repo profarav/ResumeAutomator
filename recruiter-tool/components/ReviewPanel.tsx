@@ -1,0 +1,129 @@
+"use client";
+
+import { FilteredCandidate } from "@/lib/claude";
+import CandidateCard from "./CandidateCard";
+
+function SkeletonCard() {
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col gap-4 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-zinc-800 shrink-0" />
+        <div className="flex flex-col gap-2 flex-1">
+          <div className="h-3.5 bg-zinc-800 rounded w-2/3" />
+          <div className="h-3 bg-zinc-800 rounded w-1/2" />
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div className="h-3 bg-zinc-800 rounded w-3/4" />
+        <div className="h-3 bg-zinc-800 rounded w-1/2" />
+      </div>
+      <div className="flex flex-col gap-1.5 flex-1">
+        <div className="h-3 bg-zinc-800 rounded w-full" />
+        <div className="h-3 bg-zinc-800 rounded w-full" />
+        <div className="h-3 bg-zinc-800 rounded w-4/5" />
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <div className="h-7 bg-zinc-800 rounded-lg w-20" />
+        <div className="h-7 bg-zinc-800 rounded-lg w-16 ml-auto" />
+      </div>
+    </div>
+  );
+}
+
+interface ReviewPanelProps {
+  candidates: FilteredCandidate[];
+  emails: Record<number, string>;
+  selected: Set<number>;
+  loading: boolean;
+  sendingEmail: boolean;
+  emailStatus: string | null;
+  onToggle: (index: number) => void;
+  onEmailChange: (index: number, email: string) => void;
+  onSendOutreach: () => void;
+}
+
+export default function ReviewPanel({
+  candidates,
+  emails,
+  selected,
+  loading,
+  sendingEmail,
+  emailStatus,
+  onToggle,
+  onEmailChange,
+  onSendOutreach,
+}: ReviewPanelProps) {
+  if (!loading && candidates.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-semibold tracking-widest text-zinc-500 uppercase">
+          {loading ? "Sourcing candidates..." : "Top Candidates"}
+        </h2>
+        {!loading && (
+          <span className="text-xs text-zinc-500">
+            {selected.size} of {candidates.length} selected
+          </span>
+        )}
+      </div>
+
+      {/* Card grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {loading
+          ? Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
+          : candidates.map((c, i) => (
+              <CandidateCard
+                key={i}
+                candidate={c}
+                email={emails[i] ?? ""}
+                selected={selected.has(i)}
+                onToggle={() => onToggle(i)}
+                onEmailChange={(val) => onEmailChange(i, val)}
+              />
+            ))}
+      </div>
+
+      {/* Action bar */}
+      {!loading && candidates.length > 0 && (
+        <div className="sticky bottom-0 bg-zinc-950/80 backdrop-blur border-t border-zinc-800 -mx-6 px-6 py-4 flex items-center justify-between gap-4">
+          <p className="text-sm text-zinc-400">
+            {selected.size === 0
+              ? "Select candidates to send outreach"
+              : `${selected.size} candidate${selected.size !== 1 ? "s" : ""} selected`}
+          </p>
+
+          <div className="flex items-center gap-3">
+            {emailStatus && (
+              <span
+                className={`text-xs font-medium px-3 py-1.5 rounded-full ${
+                  emailStatus.startsWith("✓")
+                    ? "bg-emerald-900/50 text-emerald-400 border border-emerald-800"
+                    : emailStatus.startsWith("✗")
+                    ? "bg-red-900/50 text-red-400 border border-red-800"
+                    : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {emailStatus}
+              </span>
+            )}
+            <button
+              onClick={onSendOutreach}
+              disabled={selected.size === 0 || sendingEmail}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {sendingEmail ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Outreach"
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
