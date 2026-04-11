@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/api/search/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/filter/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/email/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
