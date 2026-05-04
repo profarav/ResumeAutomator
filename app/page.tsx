@@ -3,6 +3,7 @@
 import { useState } from "react";
 import SearchPanel from "@/components/SearchPanel";
 import ReviewPanel from "@/components/ReviewPanel";
+import { FeedbackState } from "@/components/CandidateCard";
 import { FilteredCandidate } from "@/lib/claude";
 
 const COMPANY_ROLES: Record<string, string[]> = {
@@ -20,6 +21,7 @@ export default function Home() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const [emails, setEmails] = useState<Record<number, string>>({});
+  const [feedback, setFeedback] = useState<Record<number, FeedbackState>>({});
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
@@ -29,6 +31,7 @@ export default function Home() {
     setCandidates([]);
     setSelected(new Set());
     setEmails({});
+    setFeedback({});
     setEmailStatus(null);
   }
 
@@ -46,6 +49,7 @@ export default function Home() {
     setCandidates([]);
     setSelected(new Set());
     setEmails({});
+    setFeedback({});
     setEmailStatus(null);
 
     try {
@@ -63,11 +67,11 @@ export default function Home() {
 
       const { candidates: raw } = await searchRes.json();
 
-      // Step 2: Filter with Claude
+      // Step 2: Filter with Claude (now includes seniority for feedback lookup)
       const filterRes = await fetch("/api/filter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidates: raw, role, company }),
+        body: JSON.stringify({ candidates: raw, role, company, seniority }),
       });
 
       if (!filterRes.ok) {
@@ -88,6 +92,47 @@ export default function Home() {
       setEmailStatus(`✗ ${error instanceof Error ? error.message : "Something went wrong"}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleFeedbackSubmit(index: number) {
+    const candidate = candidates[index];
+    const fb = feedback[index];
+    if (!candidate?.db_id || !fb || fb.vote === null) return;
+
+    setFeedback((prev) => ({
+      ...prev,
+      [index]: { ...fb, submitting: true },
+    }));
+
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidate_id: candidate.db_id,
+          approved: fb.vote === "up",
+          feedback_text: fb.text,
+          role,
+          seniority,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Feedback save failed");
+      }
+
+      setFeedback((prev) => ({
+        ...prev,
+        [index]: { ...fb, submitting: false, submitted: true },
+      }));
+    } catch (error) {
+      console.error(error);
+      setFeedback((prev) => ({
+        ...prev,
+        [index]: { ...fb, submitting: false },
+      }));
     }
   }
 
@@ -180,11 +225,14 @@ export default function Home() {
           candidates={candidates}
           emails={emails}
           selected={selected}
+          feedback={feedback}
           loading={loading}
           sendingEmail={sendingEmail}
           emailStatus={emailStatus}
           onToggle={handleToggle}
           onEmailChange={(i, val) => setEmails((prev) => ({ ...prev, [i]: val }))}
+          onFeedbackChange={(i, next) => setFeedback((prev) => ({ ...prev, [i]: next }))}
+          onFeedbackSubmit={handleFeedbackSubmit}
           onSendOutreach={handleSendOutreach}
         />
       </main>

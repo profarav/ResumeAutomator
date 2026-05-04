@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ApolloCandidate } from "./apollo";
+import { getCriteriaFor } from "./criteria";
 
 export interface FilteredCandidate {
   name: string;
@@ -10,6 +11,12 @@ export interface FilteredCandidate {
   photo_url: string;
   summary: string;
   email?: string;
+  db_id?: string | null;
+}
+
+export interface FeedbackContext {
+  likes?: string;
+  dislikes?: string;
 }
 
 function getClient() {
@@ -18,7 +25,13 @@ function getClient() {
   return new Anthropic({ apiKey });
 }
 
-function buildPrompt(candidates: ApolloCandidate[], role: string, company: string): string {
+function buildPrompt(
+  candidates: ApolloCandidate[],
+  role: string,
+  company: string,
+  pickCount: number,
+  feedback?: FeedbackContext
+): string {
   const list = candidates.map((c, i) => ({
     index: i + 1,
     name: c.name,
@@ -29,12 +42,27 @@ function buildPrompt(candidates: ApolloCandidate[], role: string, company: strin
     photo_url: c.photo_url ?? "",
   }));
 
-  return `You are a recruiting assistant for ${company}, a brand design agency.
-Given the following list of candidates for a ${role} position at ${company}, return the top 5 based on title relevance, seniority match, and employer prestige. For each candidate, write a 2-sentence summary of why they're a strong fit for a design agency environment.
+  const criteria = getCriteriaFor(role);
 
+  const criteriaBlock = criteria
+    ? `\nRole-specific criteria for ${role}:\n${criteria}\n`
+    : "";
+
+  const likes = feedback?.likes?.trim();
+  const dislikes = feedback?.dislikes?.trim();
+  const feedbackBlock =
+    likes || dislikes
+      ? `\nBased on past searches, factor this team feedback heavily into your selection:\n${
+          likes ? `- The team has preferred candidates with these qualities:\n${likes}\n` : ""
+        }${dislikes ? `- The team has previously rejected candidates for these reasons:\n${dislikes}\n` : ""}`
+      : "";
+
+  return `You are a recruiting assistant for ${company}, a brand design agency.
+Given the following list of candidates for a ${role} position at ${company}, return the top ${pickCount} based on title relevance, seniority match, and employer prestige. For each candidate, write a 2-sentence summary of why they're a strong fit for a design agency environment.
+${criteriaBlock}${feedbackBlock}
 Important: some candidates may have placeholder names like "Candidate 1" — keep the name exactly as given, do not invent real names.
 
-Return JSON only, no markdown, no code fences. The JSON must be a valid array:
+Return JSON only, no markdown, no code fences. The JSON must be a valid array of exactly ${pickCount} candidates:
 [{ "name": "...", "title": "...", "employer": "...", "linkedin_url": "...", "city": "...", "photo_url": "...", "summary": "..." }]
 
 Candidates:
@@ -44,13 +72,11 @@ ${JSON.stringify(list, null, 2)}`;
 async function callClaude(prompt: string): Promise<FilteredCandidate[]> {
   const message = await getClient().messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
+    max_tokens: 3072,
     messages: [{ role: "user", content: prompt }],
   });
 
   const text = message.content[0].type === "text" ? message.content[0].text : "";
-
-  // Strip any accidental markdown fences
   const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
   return JSON.parse(cleaned) as FilteredCandidate[];
 }
@@ -58,17 +84,18 @@ async function callClaude(prompt: string): Promise<FilteredCandidate[]> {
 export async function filterCandidates(
   candidates: ApolloCandidate[],
   role: string,
-  company: string
+  company: string,
+  pickCount: number = 8,
+  feedback?: FeedbackContext
 ): Promise<FilteredCandidate[]> {
-  const prompt = buildPrompt(candidates, role, company);
+  const prompt = buildPrompt(candidates, role, company, pickCount, feedback);
 
   try {
     return await callClaude(prompt);
   } catch {
-    // Retry once with a stricter prompt
     const strictPrompt =
       prompt +
-      "\n\nCRITICAL: Your entire response must be ONLY a valid JSON array. No text before or after. No markdown. No explanation. Start with [ and end with ].";
+      `\n\nCRITICAL: Your entire response must be ONLY a valid JSON array of exactly ${pickCount} items. No text before or after. No markdown. No explanation. Start with [ and end with ].`;
     return await callClaude(strictPrompt);
   }
 }

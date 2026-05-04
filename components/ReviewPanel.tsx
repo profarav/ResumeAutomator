@@ -1,7 +1,7 @@
 "use client";
 
 import { FilteredCandidate } from "@/lib/claude";
-import CandidateCard from "./CandidateCard";
+import CandidateCard, { FeedbackState } from "./CandidateCard";
 
 function SkeletonCard() {
   return (
@@ -34,11 +34,14 @@ interface ReviewPanelProps {
   candidates: FilteredCandidate[];
   emails: Record<number, string>;
   selected: Set<number>;
+  feedback: Record<number, FeedbackState>;
   loading: boolean;
   sendingEmail: boolean;
   emailStatus: string | null;
   onToggle: (index: number) => void;
   onEmailChange: (index: number, email: string) => void;
+  onFeedbackChange: (index: number, next: FeedbackState) => void;
+  onFeedbackSubmit: (index: number) => void;
   onSendOutreach: () => void;
 }
 
@@ -46,11 +49,14 @@ export default function ReviewPanel({
   candidates,
   emails,
   selected,
+  feedback,
   loading,
   sendingEmail,
   emailStatus,
   onToggle,
   onEmailChange,
+  onFeedbackChange,
+  onFeedbackSubmit,
   onSendOutreach,
 }: ReviewPanelProps) {
   if (!loading && candidates.length === 0) return null;
@@ -78,8 +84,13 @@ export default function ReviewPanel({
                 candidate={c}
                 email={emails[i] ?? ""}
                 selected={selected.has(i)}
+                feedback={
+                  feedback[i] ?? { vote: null, text: "", submitted: false, submitting: false }
+                }
                 onToggle={() => onToggle(i)}
                 onEmailChange={(val) => onEmailChange(i, val)}
+                onFeedbackChange={(next) => onFeedbackChange(i, next)}
+                onFeedbackSubmit={() => onFeedbackSubmit(i)}
               />
             ))}
       </div>

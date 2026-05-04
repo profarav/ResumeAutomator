@@ -1,22 +1,52 @@
 "use client";
 
+import { useState } from "react";
 import { FilteredCandidate } from "@/lib/claude";
+
+export type FeedbackVote = "up" | "down" | null;
+
+export interface FeedbackState {
+  vote: FeedbackVote;
+  text: string;
+  submitted: boolean;
+  submitting: boolean;
+}
 
 interface CandidateCardProps {
   candidate: FilteredCandidate;
   email: string;
   selected: boolean;
+  feedback: FeedbackState;
   onToggle: () => void;
   onEmailChange: (email: string) => void;
+  onFeedbackChange: (next: FeedbackState) => void;
+  onFeedbackSubmit: () => void;
 }
 
-export default function CandidateCard({ candidate, email, selected, onToggle, onEmailChange }: CandidateCardProps) {
+export default function CandidateCard({
+  candidate,
+  email,
+  selected,
+  feedback,
+  onToggle,
+  onEmailChange,
+  onFeedbackChange,
+  onFeedbackSubmit,
+}: CandidateCardProps) {
+  const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+
   const initials = candidate.name
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  function handleVote(vote: FeedbackVote) {
+    if (feedback.submitted) return;
+    onFeedbackChange({ ...feedback, vote });
+    setShowFeedbackInput(true);
+  }
 
   return (
     <div
@@ -26,7 +56,6 @@ export default function CandidateCard({ candidate, email, selected, onToggle, on
           : "border-zinc-800 hover:border-zinc-700"
       }`}
     >
-      {/* Selected badge */}
       {selected && (
         <div className="absolute top-3 right-3 w-5 h-5 bg-white rounded-full flex items-center justify-center z-10">
           <svg className="w-3 h-3 text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -96,7 +125,7 @@ export default function CandidateCard({ candidate, email, selected, onToggle, on
           />
         </div>
 
-        {/* Actions */}
+        {/* Actions: LinkedIn + Select */}
         <div className="flex items-center gap-2 pt-1">
           {candidate.linkedin_url && (
             <a
@@ -121,6 +150,64 @@ export default function CandidateCard({ candidate, email, selected, onToggle, on
           >
             {selected ? "Selected" : "Select"}
           </button>
+        </div>
+
+        {/* Feedback footer */}
+        <div className="flex flex-col gap-2 pt-3 border-t border-zinc-800">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-zinc-500 font-medium">
+              {feedback.submitted ? "Feedback saved" : "Was this a good match?"}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handleVote("up")}
+                disabled={feedback.submitted}
+                aria-label="Thumbs up"
+                className={`w-7 h-7 flex items-center justify-center rounded-lg border transition-all ${
+                  feedback.vote === "up"
+                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                    : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                } disabled:opacity-60 disabled:cursor-not-allowed`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                </svg>
+              </button>
+              <button
+                onClick={() => handleVote("down")}
+                disabled={feedback.submitted}
+                aria-label="Thumbs down"
+                className={`w-7 h-7 flex items-center justify-center rounded-lg border transition-all ${
+                  feedback.vote === "down"
+                    ? "bg-red-500/20 border-red-500 text-red-400"
+                    : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                } disabled:opacity-60 disabled:cursor-not-allowed`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {showFeedbackInput && feedback.vote && !feedback.submitted && (
+            <div className="flex flex-col gap-2">
+              <textarea
+                value={feedback.text}
+                onChange={(e) => onFeedbackChange({ ...feedback, text: e.target.value })}
+                placeholder="Tell us why (optional)"
+                rows={2}
+                className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder-zinc-600 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-500 resize-none"
+              />
+              <button
+                onClick={onFeedbackSubmit}
+                disabled={feedback.submitting}
+                className="self-end px-3 py-1.5 bg-white text-zinc-900 text-xs font-semibold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {feedback.submitting ? "Saving..." : "Submit feedback"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
