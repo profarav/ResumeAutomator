@@ -5,6 +5,11 @@ import { supabase, CandidateRow } from "@/lib/supabase";
 
 export const maxDuration = 60;
 
+// Build a stable key for de-dup: title + company normalized lowercase
+function dedupKey(title?: string | null, company?: string | null): string {
+  return `${(title ?? "").trim().toLowerCase()}|${(company ?? "").trim().toLowerCase()}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -12,11 +17,13 @@ export async function POST(req: NextRequest) {
       role,
       company,
       seniority,
+      excludeKeys = [],
     }: {
       candidates: ApolloCandidate[];
       role: string;
       company: string;
       seniority: string;
+      excludeKeys?: string[];
     } = await req.json();
 
     if (!candidates || !role || !company || !seniority) {
@@ -26,7 +33,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Load any existing feedback summary for this role/seniority
+    // Step 0a: Pull existing candidates for this role/seniority/company so we can exclude them
+    const { data: existing } = await supabase
+      .from("candidates")
+      .select("title, company")
+      .eq("role", role)
+      .eq("seniority", seniority)
+      .eq("company_searched", company);
+
+    const seenKeys = new Set<string>(
+      (existing ?? []).map((r) => dedupKey(r.title, r.company))
+    );
+    // Also exclude anything the client already shown this session ("Get next 5" use case)
+    excludeKeys.forEach((k) => seenKeys.add(k.toLowerCase()));
+
+    const fresh = candidates.filter(
+      (c) =>
+        !seenKeys.has(
+          dedupKey(c.title, c.current_employer ?? c.organization?.name ?? "")
+        )
+    );
+
+    if (fresh.length === 0) {
+      return NextResponse.json({
+        candidates: [],
+        message:
+          "No new candidates — every match for this search has already been surfaced. Try a different role, seniority, or location.",
+      });
+    }
+
+    // Step 0b: Load any existing feedback summary for this role/seniority
     const { data: feedbackData } = await supabase
       .from("feedback_summary")
       .select("likes, dislikes")
@@ -39,11 +75,11 @@ export async function POST(req: NextRequest) {
       : undefined;
 
     // Step 1: Ask Claude for top 8 (oversampling so we can enforce LinkedIn)
-    const top8 = await filterCandidates(candidates, role, company, 8, feedback);
+    const top8 = await filterCandidates(fresh, role, company, 8, feedback);
 
     // Step 2: Match each Claude pick back to the raw Apollo record (with id)
     const top8WithIds: ApolloCandidate[] = top8.map((filtered) => {
-      const match = candidates.find(
+      const match = fresh.find(
         (c) =>
           (c.current_employer ?? c.organization?.name ?? "") === filtered.employer &&
           c.title === filtered.title
@@ -63,8 +99,7 @@ export async function POST(req: NextRequest) {
     // Step 3: Reveal all 8 (costs 8 credits) to surface LinkedIn URLs and emails
     const revealed = await revealCandidates(top8WithIds);
 
-    // Step 4: Merge revealed data, then keep only those with a LinkedIn URL.
-    // Take the first 5 that survive the LinkedIn filter, in Claude's original order.
+    // Step 4: Merge revealed data, prefer LinkedIn-having candidates, fall back if needed
     const merged: FilteredCandidate[] = top8.map((c, i) => ({
       ...c,
       name: revealed[i]?.name ?? c.name,
@@ -74,18 +109,9 @@ export async function POST(req: NextRequest) {
       photo_url: revealed[i]?.photo_url ?? c.photo_url,
     }));
 
-    // Prefer candidates with LinkedIn, but if reveal failed (e.g. out of Apollo
-    // credits) and fewer than 5 survive, fall back to the rest so we still
-    // show 5 cards rather than an empty screen.
     const withLinkedIn = merged.filter((c) => c.linkedin_url && c.linkedin_url.trim() !== "");
     const withoutLinkedIn = merged.filter((c) => !c.linkedin_url || c.linkedin_url.trim() === "");
     const enriched = [...withLinkedIn, ...withoutLinkedIn].slice(0, 5);
-
-    if (withLinkedIn.length < 5) {
-      console.warn(
-        `[filter] Only ${withLinkedIn.length}/8 candidates had LinkedIn after reveal — likely Apollo credits exhausted or reveal partial. Falling back.`
-      );
-    }
 
     // Step 5: Save the final 5 to Supabase (approved=null until feedback comes in)
     const rows: Omit<CandidateRow, "id">[] = enriched.map((c) => ({
@@ -111,10 +137,11 @@ export async function POST(req: NextRequest) {
       console.error("[filter] Supabase insert failed:", insertError);
     }
 
-    // Attach the DB id to each returned candidate so the frontend can submit feedback
+    // Attach the DB id + the dedup key (so the client can ask for "next 5" later)
     const withIds = enriched.map((c, i) => ({
       ...c,
       db_id: inserted?.[i]?.id ?? null,
+      dedup_key: dedupKey(c.title, c.employer),
     }));
 
     return NextResponse.json({ candidates: withIds });

@@ -1,39 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import SearchPanel from "@/components/SearchPanel";
 import ReviewPanel from "@/components/ReviewPanel";
 import { FeedbackState } from "@/components/CandidateCard";
 import { FilteredCandidate } from "@/lib/claude";
+import { ApolloCandidate } from "@/lib/apollo";
 
-const COMPANY_ROLES: Record<string, string[]> = {
+const FALLBACK_COMPANIES: Record<string, string[]> = {
   "Klimt & Design": ["Visual Designer", "UI/UX Designer", "Creative Strategist"],
   Primer: ["Paid Media Specialist", "Media Buyer", "Creative Strategist"],
 };
 
 export default function Home() {
+  const [companyRoles, setCompanyRoles] = useState<Record<string, string[]>>(FALLBACK_COMPANIES);
   const [company, setCompany] = useState("Klimt & Design");
   const [role, setRole] = useState("Visual Designer");
   const [seniority, setSeniority] = useState("Senior");
+  const [location, setLocation] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [candidates, setCandidates] = useState<FilteredCandidate[]>([]);
+  const [rawApollo, setRawApollo] = useState<ApolloCandidate[]>([]);
+  const [shownDedupKeys, setShownDedupKeys] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const [emails, setEmails] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<Record<number, FeedbackState>>({});
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
 
-  function handleCompanyChange(c: string) {
-    setCompany(c);
-    setRole(COMPANY_ROLES[c][0]);
+  // Load companies from settings on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings");
+        const data = await res.json();
+        const cfg = data.settings?.companies_config as Record<string, string[]> | undefined;
+        if (cfg && Object.keys(cfg).length > 0) {
+          setCompanyRoles(cfg);
+          const firstCompany = Object.keys(cfg)[0];
+          setCompany(firstCompany);
+          setRole(cfg[firstCompany][0] ?? "");
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      }
+    })();
+  }, []);
+
+  function resetShortlist() {
     setCandidates([]);
+    setRawApollo([]);
+    setShownDedupKeys([]);
     setSelected(new Set());
     setEmails({});
     setFeedback({});
     setEmailStatus(null);
+    setBannerMessage(null);
+  }
+
+  function handleCompanyChange(c: string) {
+    setCompany(c);
+    setRole(companyRoles[c]?.[0] ?? "");
+    resetShortlist();
   }
 
   function handleToggle(index: number) {
@@ -45,20 +78,61 @@ export default function Home() {
     });
   }
 
+  // Calls /api/filter with the given Apollo pool and exclude keys, then merges into UI state
+  async function runFilter(pool: ApolloCandidate[], excludeKeys: string[], appendMode: boolean) {
+    const filterRes = await fetch("/api/filter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidates: pool, role, company, seniority, excludeKeys }),
+    });
+
+    if (!filterRes.ok) {
+      const err = await filterRes.json();
+      throw new Error(err.error ?? "Filter failed");
+    }
+
+    const data = await filterRes.json();
+    const fresh: FilteredCandidate[] = data.candidates ?? [];
+
+    if (data.message) setBannerMessage(data.message);
+
+    if (fresh.length === 0) return;
+
+    if (appendMode) {
+      setCandidates((prev) => [...prev, ...fresh]);
+      setEmails((prev) => {
+        const next = { ...prev };
+        const offset = Object.keys(prev).length;
+        fresh.forEach((c, i) => {
+          if (c.email) next[offset + i] = c.email;
+        });
+        return next;
+      });
+    } else {
+      setCandidates(fresh);
+      const initialEmails: Record<number, string> = {};
+      fresh.forEach((c, i) => {
+        if (c.email) initialEmails[i] = c.email;
+      });
+      setEmails(initialEmails);
+    }
+
+    setShownDedupKeys((prev) => [
+      ...prev,
+      ...fresh.map((c) => c.dedup_key ?? "").filter(Boolean),
+    ]);
+  }
+
   async function handleSearch() {
+    if (!role || !company) return;
     setLoading(true);
-    setCandidates([]);
-    setSelected(new Set());
-    setEmails({});
-    setFeedback({});
-    setEmailStatus(null);
+    resetShortlist();
 
     try {
-      // Step 1: Search Apollo
       const searchRes = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, seniority }),
+        body: JSON.stringify({ role, seniority, location }),
       });
 
       if (!searchRes.ok) {
@@ -66,33 +140,30 @@ export default function Home() {
         throw new Error(err.error ?? "Search failed");
       }
 
-      const { candidates: raw } = await searchRes.json();
+      const { candidates: raw }: { candidates: ApolloCandidate[] } = await searchRes.json();
+      setRawApollo(raw);
 
-      // Step 2: Filter with Claude (now includes seniority for feedback lookup)
-      const filterRes = await fetch("/api/filter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidates: raw, role, company, seniority }),
-      });
-
-      if (!filterRes.ok) {
-        const err = await filterRes.json();
-        throw new Error(err.error ?? "Filter failed");
-      }
-
-      const { candidates: top5 } = await filterRes.json();
-      setCandidates(top5);
-      // Pre-populate email fields with whatever Apollo revealed
-      const initialEmails: Record<number, string> = {};
-      top5.forEach((c: FilteredCandidate, i: number) => {
-        if (c.email) initialEmails[i] = c.email;
-      });
-      setEmails(initialEmails);
+      await runFilter(raw, [], false);
     } catch (error) {
       console.error(error);
       setEmailStatus(`✗ ${error instanceof Error ? error.message : "Something went wrong"}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGetMore() {
+    if (rawApollo.length === 0) return;
+    setLoadingMore(true);
+    setBannerMessage(null);
+
+    try {
+      await runFilter(rawApollo, shownDedupKeys, true);
+    } catch (error) {
+      console.error(error);
+      setEmailStatus(`✗ ${error instanceof Error ? error.message : "Failed to get more"}`);
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -142,12 +213,15 @@ export default function Home() {
     setSendingEmail(true);
     setEmailStatus(null);
 
-    const targets = Array.from(selected).map((i) => ({
-      name: candidates[i].name,
-      email: emails[i] ?? "",
-      role,
-      company,
-    })).filter((t) => t.email.trim() !== "");
+    const targets = Array.from(selected)
+      .map((i) => ({
+        name: candidates[i].name,
+        email: emails[i] ?? "",
+        role,
+        company,
+        db_id: candidates[i].db_id,
+      }))
+      .filter((t) => t.email.trim() !== "");
 
     if (targets.length === 0) {
       setEmailStatus("✗ No valid emails — fill in email fields first");
@@ -168,6 +242,19 @@ export default function Home() {
       const sent = data.results.filter((r: { status: string }) => r.status === "sent").length;
       const failed = data.results.filter((r: { status: string }) => r.status === "failed").length;
 
+      // Reflect "contacted" state on those cards immediately
+      const sentTargets = data.results
+        .map((r: { status: string }, i: number) => (r.status === "sent" ? targets[i].db_id : null))
+        .filter(Boolean);
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          sentTargets.includes(c.db_id)
+            ? { ...c, contacted_at: new Date().toISOString() }
+            : c
+        )
+      );
+
       if (failed === 0) {
         setEmailStatus(`✓ ${sent} email${sent !== 1 ? "s" : ""} sent successfully`);
       } else {
@@ -182,7 +269,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      {/* Header */}
       <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -193,7 +279,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-sm font-semibold text-zinc-100 leading-tight">Recruiter</p>
-              <p className="text-xs text-zinc-500 leading-tight">Klimt &amp; Design · Internal</p>
+              <p className="text-xs text-zinc-500 leading-tight">Internal sourcing tool</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -214,7 +300,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main */}
       <main className="max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8 pb-32">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">Find Candidates</h1>
@@ -224,15 +309,27 @@ export default function Home() {
         </div>
 
         <SearchPanel
+          companyRoles={companyRoles}
           company={company}
           role={role}
           seniority={seniority}
+          location={location}
           loading={loading}
+          hasShortlist={candidates.length > 0 && rawApollo.length > 0}
+          loadingMore={loadingMore}
           onCompanyChange={handleCompanyChange}
           onRoleChange={setRole}
           onSeniorityChange={setSeniority}
+          onLocationChange={setLocation}
           onSearch={handleSearch}
+          onGetMore={handleGetMore}
         />
+
+        {bannerMessage && (
+          <div className="bg-amber-900/20 border border-amber-800/40 text-amber-300 text-sm px-4 py-3 rounded-xl">
+            {bannerMessage}
+          </div>
+        )}
 
         <ReviewPanel
           candidates={candidates}

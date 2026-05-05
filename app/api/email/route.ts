@@ -9,6 +9,7 @@ interface EmailTarget {
   email: string;
   role: string;
   company: string;
+  db_id?: string | null;
 }
 
 interface EmailSettings {
@@ -99,6 +100,22 @@ export async function POST(req: NextRequest) {
         }
       })
     );
+
+    // Mark successfully-emailed candidates as contacted in the DB
+    const sentDbIds = results
+      .map((r, i) => (r.status === "sent" ? targets[i]?.db_id : null))
+      .filter((id): id is string => Boolean(id));
+
+    if (sentDbIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from("candidates")
+        .update({ contacted: true, contacted_at: new Date().toISOString() })
+        .in("id", sentDbIds);
+
+      if (updateError) {
+        console.error("[email] Failed to mark candidates as contacted:", updateError);
+      }
+    }
 
     return NextResponse.json({ results });
   } catch (error) {

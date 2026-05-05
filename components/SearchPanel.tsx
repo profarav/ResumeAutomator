@@ -1,34 +1,42 @@
 "use client";
 
-const COMPANY_ROLES: Record<string, string[]> = {
-  "Klimt & Design": ["Visual Designer", "UI/UX Designer", "Creative Strategist"],
-  Primer: ["Paid Media Specialist", "Media Buyer", "Creative Strategist"],
-};
-
 const SENIORITIES = ["Senior", "Mid", "Entry"];
 
 interface SearchPanelProps {
+  companyRoles: Record<string, string[]>;
   company: string;
   role: string;
   seniority: string;
+  location: string;
   loading: boolean;
+  hasShortlist: boolean;
+  loadingMore: boolean;
   onCompanyChange: (v: string) => void;
   onRoleChange: (v: string) => void;
   onSeniorityChange: (v: string) => void;
+  onLocationChange: (v: string) => void;
   onSearch: () => void;
+  onGetMore: () => void;
 }
 
 export default function SearchPanel({
+  companyRoles,
   company,
   role,
   seniority,
+  location,
   loading,
+  hasShortlist,
+  loadingMore,
   onCompanyChange,
   onRoleChange,
   onSeniorityChange,
+  onLocationChange,
   onSearch,
+  onGetMore,
 }: SearchPanelProps) {
-  const roles = COMPANY_ROLES[company] ?? [];
+  const roles = companyRoles[company] ?? [];
+  const companies = Object.keys(companyRoles);
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-5">
@@ -36,7 +44,7 @@ export default function SearchPanel({
         <h2 className="text-xs font-semibold tracking-widest text-zinc-500 uppercase mb-4">
           Search Parameters
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Company */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-zinc-400 font-medium">Company</label>
@@ -45,11 +53,15 @@ export default function SearchPanel({
               onChange={(e) => onCompanyChange(e.target.value)}
               className="bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-500 appearance-none cursor-pointer"
             >
-              {Object.keys(COMPANY_ROLES).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {companies.length === 0 ? (
+                <option value="">No companies — add in Settings</option>
+              ) : (
+                companies.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -61,11 +73,15 @@ export default function SearchPanel({
               onChange={(e) => onRoleChange(e.target.value)}
               className="bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-500 appearance-none cursor-pointer"
             >
-              {roles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
+              {roles.length === 0 ? (
+                <option value="">No roles — add in Settings</option>
+              ) : (
+                roles.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -84,23 +100,55 @@ export default function SearchPanel({
               ))}
             </select>
           </div>
+
+          {/* Location */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-zinc-400 font-medium">
+              Location <span className="text-zinc-600 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => onLocationChange(e.target.value)}
+              placeholder="e.g. New York, San Francisco"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder-zinc-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            />
+          </div>
         </div>
       </div>
 
-      <button
-        onClick={onSearch}
-        disabled={loading}
-        className="w-full sm:w-auto self-end flex items-center justify-center gap-2 px-6 py-2.5 bg-white text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <>
-            <span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
-            Searching...
-          </>
-        ) : (
-          "Find Candidates"
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {hasShortlist && (
+          <button
+            onClick={onGetMore}
+            disabled={loading || loadingMore}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-200 border border-zinc-700 text-sm font-semibold rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingMore ? (
+              <>
+                <span className="inline-block w-4 h-4 border-2 border-zinc-500 border-t-zinc-200 rounded-full animate-spin" />
+                Loading...
+              </>
+            ) : (
+              "Get next 5"
+            )}
+          </button>
         )}
-      </button>
+        <button
+          onClick={onSearch}
+          disabled={loading || !role || !company}
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
+              Searching...
+            </>
+          ) : (
+            "Find Candidates"
+          )}
+        </button>
+      </div>
     </div>
   );
 }

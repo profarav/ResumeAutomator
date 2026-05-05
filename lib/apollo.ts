@@ -15,8 +15,26 @@ export interface ApolloCandidate {
 
 export async function searchCandidates(
   role: string,
-  seniority: string
+  seniority: string,
+  location?: string
 ): Promise<ApolloCandidate[]> {
+  // Apollo accepts an array of locations — accept comma-separated input from UI
+  const locations = location
+    ?.split(",")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const body: Record<string, unknown> = {
+    person_titles: [role],
+    person_seniorities: [seniority.toLowerCase()],
+    per_page: 50,
+    page: 1,
+  };
+
+  if (locations && locations.length > 0) {
+    body.person_locations = locations;
+  }
+
   const response = await fetch("https://api.apollo.io/api/v1/mixed_people/api_search", {
     method: "POST",
     headers: {
@@ -24,12 +42,7 @@ export async function searchCandidates(
       "Cache-Control": "no-cache",
       "X-Api-Key": process.env.APOLLO_API_KEY ?? "",
     },
-    body: JSON.stringify({
-      person_titles: [role],
-      person_seniorities: [seniority.toLowerCase()],
-      per_page: 50,
-      page: 1,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

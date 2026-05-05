@@ -12,6 +12,8 @@ export interface FilteredCandidate {
   summary: string;
   email?: string;
   db_id?: string | null;
+  dedup_key?: string;
+  contacted_at?: string | null;
 }
 
 export interface FeedbackContext {

@@ -3,6 +3,16 @@
 import { useState } from "react";
 import { FilteredCandidate } from "@/lib/claude";
 
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days >= 1) return `${days}d ago`;
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours >= 1) return `${hours}h ago`;
+  const mins = Math.max(1, Math.floor(diffMs / 60_000));
+  return `${mins}m ago`;
+}
+
 export type FeedbackVote = "up" | "down" | null;
 
 export interface FeedbackState {
@@ -61,6 +71,11 @@ export default function CandidateCard({
           <svg className="w-3 h-3 text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
+        </div>
+      )}
+      {candidate.contacted_at && (
+        <div className="absolute top-3 left-3 z-10 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full">
+          Contacted {timeAgo(candidate.contacted_at)}
         </div>
       )}
 
