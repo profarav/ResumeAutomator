@@ -74,9 +74,18 @@ export async function POST(req: NextRequest) {
       photo_url: revealed[i]?.photo_url ?? c.photo_url,
     }));
 
-    const enriched = merged
-      .filter((c) => c.linkedin_url && c.linkedin_url.trim() !== "")
-      .slice(0, 5);
+    // Prefer candidates with LinkedIn, but if reveal failed (e.g. out of Apollo
+    // credits) and fewer than 5 survive, fall back to the rest so we still
+    // show 5 cards rather than an empty screen.
+    const withLinkedIn = merged.filter((c) => c.linkedin_url && c.linkedin_url.trim() !== "");
+    const withoutLinkedIn = merged.filter((c) => !c.linkedin_url || c.linkedin_url.trim() === "");
+    const enriched = [...withLinkedIn, ...withoutLinkedIn].slice(0, 5);
+
+    if (withLinkedIn.length < 5) {
+      console.warn(
+        `[filter] Only ${withLinkedIn.length}/8 candidates had LinkedIn after reveal — likely Apollo credits exhausted or reveal partial. Falling back.`
+      );
+    }
 
     // Step 5: Save the final 5 to Supabase (approved=null until feedback comes in)
     const rows: Omit<CandidateRow, "id">[] = enriched.map((c) => ({
