@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { supabase } from "@/lib/supabase";
+
+export const maxDuration = 60;
 
 interface EmailTarget {
   name: string;
@@ -8,9 +11,17 @@ interface EmailTarget {
   company: string;
 }
 
-function buildEmail(target: EmailTarget): { subject: string; html: string } {
+interface EmailSettings {
+  from_name: string;
+  from_email: string;
+  gmail_app_password: string;
+  calendly_url: string;
+}
+
+function buildEmail(target: EmailTarget, settings: EmailSettings): { subject: string; html: string } {
   const firstName = target.name.split(" ")[0];
-  const calendlyUrl = process.env.CALENDLY_URL ?? "https://calendly.com/mock";
+  const calendlyUrl = settings.calendly_url || "https://calendly.com/mock";
+  const fromName = settings.from_name || "Klimt & Design";
 
   const subject = `Exciting opportunity — ${target.role} at ${target.company}`;
 
@@ -29,7 +40,7 @@ function buildEmail(target: EmailTarget): { subject: string; html: string } {
         Schedule a Call
       </a>
       <p style="margin-top: 32px; color: #555; font-size: 14px;">Looking forward to connecting.</p>
-      <p style="margin-top: 4px; color: #555; font-size: 14px; font-weight: 500;">Klimt &amp; Design</p>
+      <p style="margin-top: 4px; color: #555; font-size: 14px; font-weight: 500;">${fromName}</p>
     </div>
   `;
 
@@ -44,22 +55,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No targets provided" }, { status: 400 });
     }
 
+    // Pull outreach settings from Supabase (single-row settings table)
+    const { data: settings, error: settingsError } = await supabase
+      .from("settings")
+      .select("from_name, from_email, gmail_app_password, calendly_url")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (settingsError || !settings?.from_email || !settings?.gmail_app_password) {
+      return NextResponse.json(
+        {
+          error:
+            "Outreach is not configured yet. Visit /settings to add your sending email and Gmail app password.",
+        },
+        { status: 400 }
+      );
+    }
+
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
       secure: false,
       auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
+        user: settings.from_email,
+        pass: settings.gmail_app_password,
       },
     });
 
     const results = await Promise.all(
       targets.map(async (target) => {
-        const { subject, html } = buildEmail(target);
+        const { subject, html } = buildEmail(target, settings);
         try {
           await transporter.sendMail({
-            from: `"Klimt & Design" <${process.env.GMAIL_USER}>`,
+            from: `"${settings.from_name || "Klimt & Design"}" <${settings.from_email}>`,
             to: target.email,
             subject,
             html,
