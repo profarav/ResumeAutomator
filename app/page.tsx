@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import SearchPanel from "@/components/SearchPanel";
 import ReviewPanel from "@/components/ReviewPanel";
+import ThemeToggle from "@/components/ThemeToggle";
 import { FeedbackState } from "@/components/CandidateCard";
 import { FilteredCandidate } from "@/lib/claude";
 import { ApolloCandidate } from "@/lib/apollo";
@@ -33,7 +34,6 @@ export default function Home() {
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
 
-  // Load companies from settings on mount
   useEffect(() => {
     (async () => {
       try {
@@ -78,7 +78,6 @@ export default function Home() {
     });
   }
 
-  // Calls /api/filter with the given Apollo pool and exclude keys, then merges into UI state
   async function runFilter(pool: ApolloCandidate[], excludeKeys: string[], appendMode: boolean) {
     const filterRes = await fetch("/api/filter", {
       method: "POST",
@@ -242,7 +241,6 @@ export default function Home() {
       const sent = data.results.filter((r: { status: string }) => r.status === "sent").length;
       const failed = data.results.filter((r: { status: string }) => r.status === "failed").length;
 
-      // Reflect "contacted" state on those cards immediately
       const sentTargets = data.results
         .map((r: { status: string }, i: number) => (r.status === "sent" ? targets[i].db_id : null))
         .filter(Boolean);
@@ -268,24 +266,25 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-20">
+    <div className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <header className="border-b border-zinc-200 bg-white/80 dark:border-zinc-800 dark:bg-zinc-950/80 backdrop-blur sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
-              <svg className="w-4 h-4 text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <div className="w-7 h-7 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center">
+              <svg className="w-4 h-4 text-white dark:text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-zinc-100 leading-tight">Recruiter</p>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">Recruiter</p>
               <p className="text-xs text-zinc-500 leading-tight">Internal sourcing tool</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href="/settings"
-              className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-1.5"
+              className="text-xs text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors flex items-center gap-1.5"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -293,7 +292,7 @@ export default function Home() {
               </svg>
               Settings
             </Link>
-            <span className="text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">
+            <span className="text-xs text-zinc-500 bg-zinc-50 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 px-3 py-1 rounded-full">
               Powered by Claude
             </span>
           </div>
@@ -302,8 +301,8 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8 pb-32">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">Find Candidates</h1>
-          <p className="text-sm text-zinc-500 mt-1">
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight">Find Candidates</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-500 mt-1">
             Search Apollo, let Claude shortlist the top 5, then send outreach — all in one flow.
           </p>
         </div>
@@ -326,7 +325,7 @@ export default function Home() {
         />
 
         {bannerMessage && (
-          <div className="bg-amber-900/20 border border-amber-800/40 text-amber-300 text-sm px-4 py-3 rounded-xl">
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-300 text-sm px-4 py-3 rounded-xl">
             {bannerMessage}
           </div>
         )}

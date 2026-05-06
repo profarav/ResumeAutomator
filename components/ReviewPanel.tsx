@@ -5,26 +5,26 @@ import CandidateCard, { FeedbackState } from "./CandidateCard";
 
 function SkeletonCard() {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col gap-4 animate-pulse">
+    <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex flex-col gap-4 animate-pulse">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-zinc-800 shrink-0" />
+        <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0" />
         <div className="flex flex-col gap-2 flex-1">
-          <div className="h-3.5 bg-zinc-800 rounded w-2/3" />
-          <div className="h-3 bg-zinc-800 rounded w-1/2" />
+          <div className="h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded w-2/3" />
+          <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-1/2" />
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        <div className="h-3 bg-zinc-800 rounded w-3/4" />
-        <div className="h-3 bg-zinc-800 rounded w-1/2" />
+        <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4" />
+        <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-1/2" />
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
-        <div className="h-3 bg-zinc-800 rounded w-full" />
-        <div className="h-3 bg-zinc-800 rounded w-full" />
-        <div className="h-3 bg-zinc-800 rounded w-4/5" />
+        <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-full" />
+        <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-full" />
+        <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-4/5" />
       </div>
       <div className="flex items-center gap-2 pt-1">
-        <div className="h-7 bg-zinc-800 rounded-lg w-20" />
-        <div className="h-7 bg-zinc-800 rounded-lg w-16 ml-auto" />
+        <div className="h-7 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-20" />
+        <div className="h-7 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-16 ml-auto" />
       </div>
     </div>
   );
@@ -74,7 +74,6 @@ export default function ReviewPanel({
         )}
       </div>
 
-      {/* Card grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {loading
           ? Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
@@ -84,9 +83,7 @@ export default function ReviewPanel({
                 candidate={c}
                 email={emails[i] ?? ""}
                 selected={selected.has(i)}
-                feedback={
-                  feedback[i] ?? { vote: null, text: "", submitted: false, submitting: false }
-                }
+                feedback={feedback[i] ?? { vote: null, text: "", submitted: false, submitting: false }}
                 onToggle={() => onToggle(i)}
                 onEmailChange={(val) => onEmailChange(i, val)}
                 onFeedbackChange={(next) => onFeedbackChange(i, next)}
@@ -95,10 +92,9 @@ export default function ReviewPanel({
             ))}
       </div>
 
-      {/* Action bar */}
       {!loading && candidates.length > 0 && (
-        <div className="sticky bottom-0 bg-zinc-950/80 backdrop-blur border-t border-zinc-800 -mx-6 px-6 py-4 flex items-center justify-between gap-4">
-          <p className="text-sm text-zinc-400">
+        <div className="sticky bottom-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 -mx-6 px-6 py-4 flex items-center justify-between gap-4">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {selected.size === 0
               ? "Select candidates to send outreach"
               : `${selected.size} candidate${selected.size !== 1 ? "s" : ""} selected`}
@@ -109,10 +105,10 @@ export default function ReviewPanel({
               <span
                 className={`text-xs font-medium px-3 py-1.5 rounded-full ${
                   emailStatus.startsWith("✓")
-                    ? "bg-emerald-900/50 text-emerald-400 border border-emerald-800"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-400 dark:border-emerald-800"
                     : emailStatus.startsWith("✗")
-                    ? "bg-red-900/50 text-red-400 border border-red-800"
-                    : "bg-zinc-800 text-zinc-400"
+                    ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/50 dark:text-red-400 dark:border-red-800"
+                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                 }`}
               >
                 {emailStatus}
@@ -121,11 +117,11 @@ export default function ReviewPanel({
             <button
               onClick={onSendOutreach}
               disabled={selected.size === 0 || sendingEmail}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-sm font-semibold rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {sendingEmail ? (
                 <>
-                  <span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
+                  <span className="inline-block w-4 h-4 border-2 border-zinc-600 border-t-white dark:border-zinc-400 dark:border-t-zinc-900 rounded-full animate-spin" />
                   Sending...
                 </>
               ) : (
