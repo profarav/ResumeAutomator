@@ -19,6 +19,7 @@ function extractDomainSafe(url: string | null | undefined): string | null {
   }
 }
 import { supabase, CandidateRow } from "@/lib/supabase";
+import { appendCandidates } from "@/lib/sheets";
 
 export const maxDuration = 60;
 
@@ -200,13 +201,18 @@ export async function POST(req: NextRequest) {
       feedback_text: null,
     }));
 
-    const { data: inserted, error: insertError } = await supabase
-      .from("candidates")
-      .insert(rows)
-      .select("id");
+    // Save to Supabase + append to Google Sheet in parallel. Sheets failures
+    // are caught so they never block the search flow.
+    const [insertResult] = await Promise.all([
+      supabase.from("candidates").insert(rows).select("id"),
+      appendCandidates(enriched, role, seniority).catch((err) => {
+        console.error("[filter] Google Sheets append failed:", err);
+      }),
+    ]);
 
-    if (insertError) {
-      console.error("[filter] Supabase insert failed:", insertError);
+    const inserted = insertResult.data;
+    if (insertResult.error) {
+      console.error("[filter] Supabase insert failed:", insertResult.error);
     }
 
     const withIds = enriched.map((c, i) => ({
