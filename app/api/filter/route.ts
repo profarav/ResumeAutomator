@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
         ...years,
         company_summary: enrichment?.summary,
         company_industry: enrichment?.industry ?? undefined,
+        company_description: enrichment?.description ?? undefined,
       };
     });
 
@@ -176,6 +177,7 @@ export async function POST(req: NextRequest) {
           refreshedYears.years_experience ?? baseYears.years_experience ?? undefined,
         years_in_role: refreshedYears.years_in_role ?? baseYears.years_in_role ?? undefined,
         company_industry: baseYears.company_industry ?? undefined,
+        company_description: baseYears.company_description ?? undefined,
       };
     });
 

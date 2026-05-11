@@ -22,6 +22,7 @@ export interface ApolloCandidate {
   years_in_role?: number;
   company_summary?: string;
   company_industry?: string;
+  company_description?: string;
   organization?: {
     name?: string;
     primary_domain?: string;
@@ -32,6 +33,7 @@ export interface ApolloCandidate {
 export interface OrgEnrichment {
   summary: string;
   industry: string | null;
+  description: string | null;
 }
 
 // ----- Years-of-experience helpers -----
@@ -191,9 +193,25 @@ export function shortIndustry(raw: string | null | undefined): string | null {
 interface OrgEnrichResponse {
   organization?: {
     description?: string | null;
+    short_description?: string | null;
     industry?: string | null;
     keywords?: string[] | null;
   };
+}
+
+// Trim a long description to a clean one-liner suitable for a card row
+function oneLineDescription(s: string | null | undefined, max = 110): string | null {
+  if (!s) return null;
+  const cleaned = s.replace(/\s+/g, " ").trim();
+  if (cleaned.length === 0) return null;
+  // Prefer cutting at the end of the first sentence if it's short enough
+  const firstSentence = cleaned.match(/^[^.!?]+[.!?]/)?.[0]?.trim();
+  if (firstSentence && firstSentence.length <= max) return firstSentence.replace(/[.!?]$/, "");
+  // Otherwise hard-truncate at a word boundary
+  if (cleaned.length <= max) return cleaned;
+  const truncated = cleaned.slice(0, max);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return (lastSpace > 60 ? truncated.slice(0, lastSpace) : truncated).trimEnd() + "…";
 }
 
 async function enrichOneDomain(domain: string): Promise<OrgEnrichment | null> {
@@ -227,9 +245,15 @@ async function enrichOneDomain(domain: string): Promise<OrgEnrichment | null> {
 
     if (parts.length === 0 && !org.industry) return null;
 
+    // Prefer short_description (paid Apollo plan returns this; already a one-liner)
+    // and fall back to a truncated `description`
+    const display =
+      oneLineDescription(org.short_description) ?? oneLineDescription(org.description);
+
     return {
       summary: parts.join(" | "),
       industry: shortIndustry(org.industry),
+      description: display,
     };
   } catch (err) {
     console.warn(`[apollo] enrich failed for ${domain}:`, err);
@@ -328,9 +352,14 @@ async function enrichOneOrgByName(name: string): Promise<OrgEnrichment | null> {
       extractDomain(first?.domain);
 
     if (!domain) {
-      // No domain found, but the search response itself has industry info
-      if (first?.industry) {
-        return { summary: `Industry: ${first.industry}`, industry: shortIndustry(first.industry) };
+      // No domain found, but the search response itself may have industry/description info
+      if (first?.industry || first?.short_description || first?.description) {
+        return {
+          summary: first.industry ? `Industry: ${first.industry}` : "",
+          industry: shortIndustry(first.industry),
+          description:
+            oneLineDescription(first.short_description) ?? oneLineDescription(first.description),
+        };
       }
       return null;
     }

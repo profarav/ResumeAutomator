@@ -113,17 +113,24 @@ export default function CandidateCard({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2 text-xs text-zinc-500 min-w-0">
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="flex items-start gap-2 text-xs min-w-0">
+            <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
-            <span className="truncate text-zinc-700 dark:text-zinc-300">{candidate.employer || "Unknown"}</span>
-            {candidate.company_industry && (
-              <>
-                <span className="text-zinc-400 dark:text-zinc-600 shrink-0">·</span>
-                <span className="truncate italic">{candidate.company_industry}</span>
-              </>
-            )}
+            <div className="min-w-0 flex flex-col gap-0.5">
+              <span className="truncate text-zinc-800 dark:text-zinc-200 font-medium">
+                {candidate.employer || "Unknown"}
+              </span>
+              {candidate.company_description ? (
+                <span className="text-zinc-500 dark:text-zinc-400 leading-snug line-clamp-2">
+                  {candidate.company_description}
+                </span>
+              ) : candidate.company_industry ? (
+                <span className="text-zinc-500 dark:text-zinc-400 italic">
+                  {candidate.company_industry}
+                </span>
+              ) : null}
+            </div>
           </div>
           {candidate.city && (
             <div className="flex items-center gap-2 text-xs text-zinc-500">

@@ -16,6 +16,7 @@ export interface FilteredCandidate {
   years_experience?: number;
   years_in_role?: number;
   company_industry?: string;
+  company_description?: string;
   db_id?: string | null;
   dedup_key?: string;
   contacted_at?: string | null;
