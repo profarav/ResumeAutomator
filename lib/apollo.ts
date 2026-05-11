@@ -80,6 +80,112 @@ export function calculateYears(
   return { years_experience, years_in_role };
 }
 
+// ----- Industry label simplification -----
+
+// Maps Apollo's long industry strings to short single-word labels for card display.
+// Anything not in this map falls back to a sensible default in shortIndustry().
+const INDUSTRY_LABELS: Record<string, string> = {
+  // Tech
+  "computer software": "Tech",
+  "information technology and services": "Tech",
+  "internet": "Tech",
+  "computer & network security": "Tech",
+  "computer hardware": "Tech",
+  "computer networking": "Tech",
+  "consumer electronics": "Tech",
+  "semiconductors": "Tech",
+  "telecommunications": "Tech",
+  "wireless": "Tech",
+  // Design & creative
+  "design": "Design",
+  "graphic design": "Design",
+  "architecture & planning": "Architecture",
+  // Marketing / advertising
+  "marketing & advertising": "Advertising",
+  "public relations & communications": "PR",
+  // Media & entertainment
+  "media production": "Media",
+  "online media": "Media",
+  "broadcast media": "Media",
+  "publishing": "Publishing",
+  "newspapers": "Media",
+  "entertainment": "Entertainment",
+  "music": "Music",
+  "motion pictures and film": "Film",
+  "performing arts": "Arts",
+  "fine art": "Arts",
+  // Consumer / retail
+  "consumer goods": "Consumer",
+  "retail": "Retail",
+  "luxury goods & jewelry": "Luxury",
+  "apparel & fashion": "Fashion",
+  "cosmetics": "Beauty",
+  "food & beverages": "Food & Bev",
+  "restaurants": "Food & Bev",
+  "wine and spirits": "Food & Bev",
+  // Non-profit & education
+  "non-profit organization management": "Non-Profit",
+  "philanthropy": "Non-Profit",
+  "civic & social organization": "Non-Profit",
+  "education management": "Education",
+  "higher education": "Education",
+  "e-learning": "Education",
+  "research": "Research",
+  // Finance / legal / consulting
+  "financial services": "Finance",
+  "banking": "Finance",
+  "venture capital & private equity": "Finance",
+  "investment management": "Finance",
+  "investment banking": "Finance",
+  "insurance": "Insurance",
+  "real estate": "Real Estate",
+  "law practice": "Legal",
+  "legal services": "Legal",
+  "management consulting": "Consulting",
+  // Health & science
+  "health, wellness & fitness": "Wellness",
+  "hospital & health care": "Healthcare",
+  "medical practice": "Healthcare",
+  "medical devices": "Healthcare",
+  "pharmaceuticals": "Pharma",
+  "biotechnology": "Biotech",
+  // Industrial
+  "manufacturing": "Manufacturing",
+  "construction": "Construction",
+  "automotive": "Automotive",
+  "machinery": "Manufacturing",
+  "aviation & aerospace": "Aerospace",
+  "airlines/aviation": "Aviation",
+  "logistics & supply chain": "Logistics",
+  // Hospitality / travel
+  "hospitality": "Hospitality",
+  "leisure, travel & tourism": "Travel",
+  "events services": "Events",
+  // HR / recruiting
+  "human resources": "HR",
+  "staffing & recruiting": "Recruiting",
+  // Government
+  "government administration": "Government",
+  "public policy": "Government",
+  "international affairs": "Government",
+};
+
+function titleCase(s: string): string {
+  return s
+    .split(/\s+/)
+    .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
+export function shortIndustry(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const key = raw.trim().toLowerCase();
+  if (INDUSTRY_LABELS[key]) return INDUSTRY_LABELS[key];
+  // Fallback: first segment before " & " or " and ", title-cased
+  const first = key.split(/\s&\s|\sand\s|,\s/)[0];
+  return titleCase(first);
+}
+
 // ----- Organization enrichment (deduped by domain) -----
 
 interface OrgEnrichResponse {
@@ -123,7 +229,7 @@ async function enrichOneDomain(domain: string): Promise<OrgEnrichment | null> {
 
     return {
       summary: parts.join(" | "),
-      industry: org.industry ?? null,
+      industry: shortIndustry(org.industry),
     };
   } catch (err) {
     console.warn(`[apollo] enrich failed for ${domain}:`, err);

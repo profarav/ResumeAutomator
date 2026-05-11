@@ -52,6 +52,18 @@ export default function CandidateCard({
     .slice(0, 2)
     .toUpperCase();
 
+  // Portfolio link: use Apollo's website_url when available, otherwise build a
+  // targeted Google search across the major portfolio platforms. Skip entirely
+  // if we only have a placeholder name (no useful search query).
+  const isPlaceholderName = /^Candidate\s+\d+$/i.test(candidate.name);
+  let portfolioHref: string | null = null;
+  if (candidate.website_url && candidate.website_url.trim() !== "") {
+    portfolioHref = candidate.website_url;
+  } else if (!isPlaceholderName) {
+    const query = `"${candidate.name}" ${candidate.title} portfolio (site:behance.net OR site:dribbble.com OR site:cargo.site OR site:notion.site OR site:are.na OR site:webflow.io)`;
+    portfolioHref = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  }
+
   function handleVote(vote: FeedbackVote) {
     if (feedback.submitted) return;
     onFeedbackChange({ ...feedback, vote });
@@ -179,11 +191,12 @@ export default function CandidateCard({
               LinkedIn
             </a>
           )}
-          {candidate.website_url && (
+          {portfolioHref && (
             <a
-              href={candidate.website_url}
+              href={portfolioHref}
               target="_blank"
               rel="noopener noreferrer"
+              title={candidate.website_url ? "Open portfolio" : "Search the web for this person's portfolio"}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 hover:text-zinc-900 dark:hover:border-zinc-500 dark:hover:text-zinc-200 transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
