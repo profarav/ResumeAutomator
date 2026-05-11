@@ -22,7 +22,12 @@ function loadCredentials(): Record<string, unknown> | null {
   const raw = process.env.GOOGLE_SHEETS_CREDENTIALS_JSON;
   if (raw && raw.trim() !== "") {
     try {
-      const parsed = JSON.parse(raw);
+      // Tolerant slice: extract from first `{` to last `}` so a trailing
+      // newline / stray character in Vercel's env-var input doesn't break us.
+      const start = raw.indexOf("{");
+      const end = raw.lastIndexOf("}");
+      const sliced = start >= 0 && end > start ? raw.slice(start, end + 1) : raw;
+      const parsed = JSON.parse(sliced);
       return normalizePrivateKey(parsed);
     } catch (err) {
       console.error("[sheets] Failed to parse GOOGLE_SHEETS_CREDENTIALS_JSON:", err);
