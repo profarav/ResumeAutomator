@@ -72,8 +72,13 @@ export async function POST(req: NextRequest) {
     const enrichedRaw: ApolloCandidate[] = fresh.map((c) => {
       const years = calculateYears(c.employment_history);
       const domain = c.organization?.primary_domain;
-      const company_summary = domain ? orgSummaries.get(domain) : undefined;
-      return { ...c, ...years, company_summary };
+      const enrichment = domain ? orgSummaries.get(domain) : undefined;
+      return {
+        ...c,
+        ...years,
+        company_summary: enrichment?.summary,
+        company_industry: enrichment?.industry ?? undefined,
+      };
     });
 
     // 0c. Feedback summary lookup
@@ -131,6 +136,7 @@ export async function POST(req: NextRequest) {
         years_experience:
           refreshedYears.years_experience ?? baseYears.years_experience ?? undefined,
         years_in_role: refreshedYears.years_in_role ?? baseYears.years_in_role ?? undefined,
+        company_industry: baseYears.company_industry ?? undefined,
       };
     });
 

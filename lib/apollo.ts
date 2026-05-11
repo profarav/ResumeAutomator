@@ -21,11 +21,17 @@ export interface ApolloCandidate {
   years_experience?: number;
   years_in_role?: number;
   company_summary?: string;
+  company_industry?: string;
   organization?: {
     name?: string;
     primary_domain?: string;
     website_url?: string;
   };
+}
+
+export interface OrgEnrichment {
+  summary: string;
+  industry: string | null;
 }
 
 // ----- Years-of-experience helpers -----
@@ -84,7 +90,7 @@ interface OrgEnrichResponse {
   };
 }
 
-async function enrichOneDomain(domain: string): Promise<string | null> {
+async function enrichOneDomain(domain: string): Promise<OrgEnrichment | null> {
   try {
     const url = new URL("https://api.apollo.io/api/v1/organizations/enrich");
     url.searchParams.set("domain", domain);
@@ -113,7 +119,12 @@ async function enrichOneDomain(domain: string): Promise<string | null> {
       parts.push(`About: ${desc}`);
     }
 
-    return parts.length > 0 ? parts.join(" | ") : null;
+    if (parts.length === 0 && !org.industry) return null;
+
+    return {
+      summary: parts.join(" | "),
+      industry: org.industry ?? null,
+    };
   } catch (err) {
     console.warn(`[apollo] enrich failed for ${domain}:`, err);
     return null;
@@ -122,7 +133,7 @@ async function enrichOneDomain(domain: string): Promise<string | null> {
 
 export async function enrichOrganizations(
   candidates: ApolloCandidate[]
-): Promise<Map<string, string>> {
+): Promise<Map<string, OrgEnrichment>> {
   const domains = Array.from(
     new Set(
       candidates
@@ -137,9 +148,9 @@ export async function enrichOrganizations(
     domains.map(async (domain) => [domain, await enrichOneDomain(domain)] as const)
   );
 
-  const map = new Map<string, string>();
-  for (const [domain, summary] of results) {
-    if (summary) map.set(domain, summary);
+  const map = new Map<string, OrgEnrichment>();
+  for (const [domain, enriched] of results) {
+    if (enriched) map.set(domain, enriched);
   }
   return map;
 }
