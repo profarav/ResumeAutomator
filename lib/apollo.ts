@@ -375,7 +375,9 @@ async function enrichOneOrgByName(name: string): Promise<OrgEnrichment | null> {
 export async function searchCandidates(
   role: string,
   seniority: string,
-  location?: string
+  location?: string,
+  keywords?: string,
+  technologyUids?: string[]
 ): Promise<ApolloCandidate[]> {
   const locations = location
     ?.split(",")
@@ -391,6 +393,14 @@ export async function searchCandidates(
 
   if (locations && locations.length > 0) {
     body.person_locations = locations;
+  }
+
+  if (keywords && keywords.trim() !== "") {
+    body.q_keywords = keywords.trim();
+  }
+
+  if (technologyUids && technologyUids.length > 0) {
+    body.currently_using_any_of_technology_uids = technologyUids;
   }
 
   const response = await fetch("https://api.apollo.io/api/v1/mixed_people/api_search", {

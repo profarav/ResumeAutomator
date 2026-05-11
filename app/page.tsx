@@ -20,6 +20,8 @@ export default function Home() {
   const [role, setRole] = useState("Visual Designer");
   const [seniority, setSeniority] = useState("Senior");
   const [location, setLocation] = useState("");
+  const [keywords, setKeywords] = useState("");
+  const [technologies, setTechnologies] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -131,7 +133,7 @@ export default function Home() {
       const searchRes = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, seniority, location }),
+        body: JSON.stringify({ role, seniority, location, keywords, technologies }),
       });
 
       if (!searchRes.ok) {
@@ -313,6 +315,8 @@ export default function Home() {
           role={role}
           seniority={seniority}
           location={location}
+          keywords={keywords}
+          technologies={technologies}
           loading={loading}
           hasShortlist={candidates.length > 0 && rawApollo.length > 0}
           loadingMore={loadingMore}
@@ -320,6 +324,8 @@ export default function Home() {
           onRoleChange={setRole}
           onSeniorityChange={setSeniority}
           onLocationChange={setLocation}
+          onKeywordsChange={setKeywords}
+          onTechnologiesChange={setTechnologies}
           onSearch={handleSearch}
           onGetMore={handleGetMore}
         />

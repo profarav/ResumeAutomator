@@ -5,13 +5,19 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { role, seniority, location } = await req.json();
+    const { role, seniority, location, keywords, technologies } = await req.json();
 
     if (!role || !seniority) {
       return NextResponse.json({ error: "Missing role or seniority" }, { status: 400 });
     }
 
-    const candidates = await searchCandidates(role, seniority, location);
+    const candidates = await searchCandidates(
+      role,
+      seniority,
+      location,
+      keywords,
+      technologies
+    );
     return NextResponse.json({ candidates });
   } catch (error) {
     console.error("[search] Error:", error);

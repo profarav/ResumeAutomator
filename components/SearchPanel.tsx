@@ -2,12 +2,28 @@
 
 const SENIORITIES = ["Senior", "Mid", "Entry"];
 
+// Display label → Apollo technology UID
+export const TECHNOLOGY_OPTIONS: { label: string; uid: string }[] = [
+  { label: "Shopify", uid: "shopify" },
+  { label: "Webflow", uid: "webflow" },
+  { label: "Figma", uid: "figma" },
+  { label: "WordPress", uid: "wordpress_org" },
+  { label: "Squarespace", uid: "squarespace" },
+  { label: "Adobe Creative Cloud", uid: "adobe_creative_cloud" },
+  { label: "Sketch", uid: "sketch" },
+  { label: "Framer", uid: "framer" },
+  { label: "WooCommerce", uid: "woocommerce" },
+  { label: "Magento", uid: "magento" },
+];
+
 interface SearchPanelProps {
   companyRoles: Record<string, string[]>;
   company: string;
   role: string;
   seniority: string;
   location: string;
+  keywords: string;
+  technologies: string[];
   loading: boolean;
   hasShortlist: boolean;
   loadingMore: boolean;
@@ -15,6 +31,8 @@ interface SearchPanelProps {
   onRoleChange: (v: string) => void;
   onSeniorityChange: (v: string) => void;
   onLocationChange: (v: string) => void;
+  onKeywordsChange: (v: string) => void;
+  onTechnologiesChange: (uids: string[]) => void;
   onSearch: () => void;
   onGetMore: () => void;
 }
@@ -25,6 +43,8 @@ export default function SearchPanel({
   role,
   seniority,
   location,
+  keywords,
+  technologies,
   loading,
   hasShortlist,
   loadingMore,
@@ -32,6 +52,8 @@ export default function SearchPanel({
   onRoleChange,
   onSeniorityChange,
   onLocationChange,
+  onKeywordsChange,
+  onTechnologiesChange,
   onSearch,
   onGetMore,
 }: SearchPanelProps) {
@@ -42,6 +64,14 @@ export default function SearchPanel({
     "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:focus:ring-zinc-500";
 
   const selectCls = `${inputCls} appearance-none cursor-pointer`;
+
+  function toggleTech(uid: string) {
+    if (technologies.includes(uid)) {
+      onTechnologiesChange(technologies.filter((t) => t !== uid));
+    } else {
+      onTechnologiesChange([...technologies, uid]);
+    }
+  }
 
   return (
     <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 flex flex-col gap-5">
@@ -102,6 +132,47 @@ export default function SearchPanel({
               placeholder="e.g. New York, San Francisco"
               className={inputCls}
             />
+          </div>
+        </div>
+
+        {/* Keywords + Technologies */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+              Keywords <span className="text-zinc-400 dark:text-zinc-600 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={keywords}
+              onChange={(e) => onKeywordsChange(e.target.value)}
+              placeholder="e.g. luxury brands, DTC, e-commerce"
+              className={inputCls}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+              Technologies <span className="text-zinc-400 dark:text-zinc-600 font-normal">(optional)</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-2 min-h-[42px]">
+              {TECHNOLOGY_OPTIONS.map(({ label, uid }) => {
+                const active = technologies.includes(uid);
+                return (
+                  <button
+                    key={uid}
+                    type="button"
+                    onClick={() => toggleTech(uid)}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
+                      active
+                        ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white"
+                        : "bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
