@@ -6,6 +6,18 @@ import {
   calculateYears,
   enrichOrganizations,
 } from "@/lib/apollo";
+
+function extractDomainSafe(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const cleaned = url.trim();
+    const withProto = cleaned.startsWith("http") ? cleaned : `https://${cleaned}`;
+    const u = new URL(withProto);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
 import { supabase, CandidateRow } from "@/lib/supabase";
 
 export const maxDuration = 60;
@@ -66,13 +78,27 @@ export async function POST(req: NextRequest) {
     }
 
     // 0b. Enrich each candidate with years_experience, years_in_role, company_summary
-    // Org enrichment is deduped by primary_domain so 50 candidates ≠ 50 API calls.
-    const orgSummaries = await enrichOrganizations(fresh);
+    // Org enrichment is deduped (by domain or by org name) so 50 candidates ≠ 50 API calls.
+    const { byDomain, byOrgName } = await enrichOrganizations(fresh);
 
     const enrichedRaw: ApolloCandidate[] = fresh.map((c) => {
       const years = calculateYears(c.employment_history);
-      const domain = c.organization?.primary_domain;
-      const enrichment = domain ? orgSummaries.get(domain) : undefined;
+
+      // Try domain first, then fall back to org-name lookup
+      const domain =
+        c.organization?.primary_domain?.trim() ||
+        (c.organization?.website_url ? c.organization.website_url : "");
+
+      let enrichment =
+        domain && byDomain.has(extractDomainSafe(domain) ?? domain)
+          ? byDomain.get(extractDomainSafe(domain) ?? domain)
+          : undefined;
+
+      if (!enrichment) {
+        const orgName = (c.current_employer ?? c.organization?.name ?? "").trim().toLowerCase();
+        enrichment = orgName ? byOrgName.get(orgName) : undefined;
+      }
+
       return {
         ...c,
         ...years,

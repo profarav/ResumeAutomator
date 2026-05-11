@@ -237,28 +237,108 @@ async function enrichOneDomain(domain: string): Promise<OrgEnrichment | null> {
   }
 }
 
+// Strip protocol, www., trailing path/query to extract a bare domain string
+function extractDomain(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const cleaned = url.trim();
+    const withProto = cleaned.startsWith("http") ? cleaned : `https://${cleaned}`;
+    const u = new URL(withProto);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+// Best-effort: get a usable domain for org enrichment from whatever Apollo gave us
+function candidateDomain(c: ApolloCandidate): string | null {
+  return (
+    c.organization?.primary_domain?.trim() ||
+    extractDomain(c.organization?.website_url) ||
+    null
+  );
+}
+
 export async function enrichOrganizations(
   candidates: ApolloCandidate[]
-): Promise<Map<string, OrgEnrichment>> {
-  const domains = Array.from(
-    new Set(
-      candidates
-        .map((c) => c.organization?.primary_domain)
-        .filter((d): d is string => Boolean(d?.trim()))
+): Promise<{
+  byDomain: Map<string, OrgEnrichment>;
+  byOrgName: Map<string, OrgEnrichment>;
+}> {
+  const byDomain = new Map<string, OrgEnrichment>();
+  const byOrgName = new Map<string, OrgEnrichment>();
+
+  // Bucket candidates: those we can look up by domain vs those we'll need to look up by name
+  const domains = new Set<string>();
+  const namesNeedingDomain = new Set<string>();
+
+  for (const c of candidates) {
+    const d = candidateDomain(c);
+    if (d) {
+      domains.add(d);
+    } else if (c.current_employer || c.organization?.name) {
+      namesNeedingDomain.add((c.current_employer ?? c.organization?.name)!.trim());
+    }
+  }
+
+  // 1) Enrich by every domain we know
+  const domainResults = await Promise.all(
+    Array.from(domains).map(
+      async (domain) => [domain, await enrichOneDomain(domain)] as const
     )
   );
-
-  if (domains.length === 0) return new Map();
-
-  const results = await Promise.all(
-    domains.map(async (domain) => [domain, await enrichOneDomain(domain)] as const)
-  );
-
-  const map = new Map<string, OrgEnrichment>();
-  for (const [domain, enriched] of results) {
-    if (enriched) map.set(domain, enriched);
+  for (const [domain, enriched] of domainResults) {
+    if (enriched) byDomain.set(domain, enriched);
   }
-  return map;
+
+  // 2) For candidates that only had an org name, look up the org's domain first then enrich
+  const nameResults = await Promise.all(
+    Array.from(namesNeedingDomain).map(
+      async (name) => [name, await enrichOneOrgByName(name)] as const
+    )
+  );
+  for (const [name, enriched] of nameResults) {
+    if (enriched) byOrgName.set(name.toLowerCase(), enriched);
+  }
+
+  return { byDomain, byOrgName };
+}
+
+// Fallback path: use Apollo's organization search to find a domain by name, then enrich
+async function enrichOneOrgByName(name: string): Promise<OrgEnrichment | null> {
+  try {
+    const res = await fetch(
+      `https://api.apollo.io/api/v1/mixed_companies/search`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": process.env.APOLLO_API_KEY ?? "",
+        },
+        body: JSON.stringify({ q_organization_name: name, per_page: 1 }),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const orgs = data?.organizations ?? data?.accounts ?? [];
+    const first = orgs[0];
+    const domain =
+      first?.primary_domain ||
+      extractDomain(first?.website_url) ||
+      extractDomain(first?.domain);
+
+    if (!domain) {
+      // No domain found, but the search response itself has industry info
+      if (first?.industry) {
+        return { summary: `Industry: ${first.industry}`, industry: shortIndustry(first.industry) };
+      }
+      return null;
+    }
+    return await enrichOneDomain(domain);
+  } catch (err) {
+    console.warn(`[apollo] name lookup failed for ${name}:`, err);
+    return null;
+  }
 }
 
 // ----- Search + Reveal -----
