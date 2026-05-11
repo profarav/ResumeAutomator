@@ -8,11 +8,22 @@ const RANGE = "Sheet1!A:I"; // Name | Title | Company | Location | LinkedIn URL 
 
 let cachedClient: ReturnType<typeof google.sheets> | null = null;
 
+function normalizePrivateKey(creds: Record<string, unknown>): Record<string, unknown> {
+  // Vercel env-var inputs often mangle newlines: actual \n become literal \\n.
+  // Google's auth lib needs real newlines in the PEM key.
+  if (typeof creds.private_key === "string" && !creds.private_key.includes("\n")) {
+    creds.private_key = creds.private_key.replace(/\\n/g, "\n");
+  }
+  return creds;
+}
+
 function loadCredentials(): Record<string, unknown> | null {
   // Prefer env-var (set in Vercel as the full JSON blob)
-  if (process.env.GOOGLE_SHEETS_CREDENTIALS_JSON && process.env.GOOGLE_SHEETS_CREDENTIALS_JSON.trim() !== "") {
+  const raw = process.env.GOOGLE_SHEETS_CREDENTIALS_JSON;
+  if (raw && raw.trim() !== "") {
     try {
-      return JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS_JSON);
+      const parsed = JSON.parse(raw);
+      return normalizePrivateKey(parsed);
     } catch (err) {
       console.error("[sheets] Failed to parse GOOGLE_SHEETS_CREDENTIALS_JSON:", err);
       return null;
@@ -22,7 +33,7 @@ function loadCredentials(): Record<string, unknown> | null {
   try {
     const filePath = path.join(process.cwd(), "credentials.json");
     if (!fs.existsSync(filePath)) return null;
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return normalizePrivateKey(JSON.parse(fs.readFileSync(filePath, "utf8")));
   } catch (err) {
     console.error("[sheets] Failed to read credentials.json:", err);
     return null;
