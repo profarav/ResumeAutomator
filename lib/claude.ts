@@ -74,7 +74,18 @@ Given the following list of candidates for a ${role} position at ${company}, ret
 - Employer prestige and what the employer's company does (see company_summary if provided — e.g. a designer at a respected creative agency outranks a designer at a generic SaaS company)
 - Years of experience (years_experience) and tenure in current role (years_in_role) — prefer candidates with meaningful experience but flag job-hoppers (multiple short roles)
 
-For each candidate, write a 2-sentence summary of why they're a strong fit for a design agency environment.
+For each candidate, write a SINGLE short sentence (max ~20 words) describing what this person actually does in their current role at their current company. NOT why they're a fit — that's obvious from being on this list. Just what they do day-to-day.
+
+GOOD examples:
+- "Does UI/UX design for mobile apps at ThunderClap."
+- "Runs paid Meta and Google campaigns for B2B SaaS clients at OneTrust."
+- "Leads brand strategy for consumer goods accounts at Pentagram."
+
+BAD (do not write like this):
+- "Brings specialized performance marketing expertise from a dedicated digital advertising agency with direct experience in video ads..."
+- "Their background at a marketing-focused company aligns perfectly with Primer's need for creative campaign execution..."
+
+Be specific. Use the title, employer, and company_summary to ground the description. Don't pad with adjectives. If you genuinely don't know what they do, say "[Title] at [Company]." and stop.
 
 CRITICAL: Each candidate in your response MUST include the original "index" field from the input list. This is how we link your selection back to the source data. Copy the index exactly from the input.
 ${criteriaBlock}${feedbackBlock}
