@@ -11,6 +11,9 @@ export interface FilteredCandidate {
   photo_url: string;
   summary: string;
   email?: string;
+  website_url?: string;
+  years_experience?: number;
+  years_in_role?: number;
   db_id?: string | null;
   dedup_key?: string;
   contacted_at?: string | null;
@@ -42,6 +45,9 @@ function buildPrompt(
     location: [c.city, c.state].filter(Boolean).join(", "),
     linkedin_url: c.linkedin_url ?? "",
     photo_url: c.photo_url ?? "",
+    years_experience: c.years_experience ?? null,
+    years_in_role: c.years_in_role ?? null,
+    company_summary: c.company_summary ?? null,
   }));
 
   const criteria = getCriteriaFor(role);
@@ -60,7 +66,12 @@ function buildPrompt(
       : "";
 
   return `You are a recruiting assistant for ${company}, a brand design agency.
-Given the following list of candidates for a ${role} position at ${company}, return the top ${pickCount} based on title relevance, seniority match, and employer prestige. For each candidate, write a 2-sentence summary of why they're a strong fit for a design agency environment.
+Given the following list of candidates for a ${role} position at ${company}, return the top ${pickCount} based on:
+- Title relevance and seniority match
+- Employer prestige and what the employer's company does (see company_summary if provided — e.g. a designer at a respected creative agency outranks a designer at a generic SaaS company)
+- Years of experience (years_experience) and tenure in current role (years_in_role) — prefer candidates with meaningful experience but flag job-hoppers (multiple short roles)
+
+For each candidate, write a 2-sentence summary of why they're a strong fit for a design agency environment.
 ${criteriaBlock}${feedbackBlock}
 Important: some candidates may have placeholder names like "Candidate 1" — keep the name exactly as given, do not invent real names.
 

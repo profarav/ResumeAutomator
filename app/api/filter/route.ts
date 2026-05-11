@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { filterCandidates, FilteredCandidate } from "@/lib/claude";
-import { ApolloCandidate, revealCandidates } from "@/lib/apollo";
+import {
+  ApolloCandidate,
+  revealCandidates,
+  calculateYears,
+  enrichOrganizations,
+} from "@/lib/apollo";
 import { supabase, CandidateRow } from "@/lib/supabase";
 
 export const maxDuration = 60;
 
-// Build a stable key for de-dup: title + company normalized lowercase
 function dedupKey(title?: string | null, company?: string | null): string {
   return `${(title ?? "").trim().toLowerCase()}|${(company ?? "").trim().toLowerCase()}`;
 }
@@ -33,7 +37,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 0a: Pull existing candidates for this role/seniority/company so we can exclude them
+    // 0a. De-dup against previously surfaced candidates for this role/seniority/company
     const { data: existing } = await supabase
       .from("candidates")
       .select("title, company")
@@ -44,7 +48,6 @@ export async function POST(req: NextRequest) {
     const seenKeys = new Set<string>(
       (existing ?? []).map((r) => dedupKey(r.title, r.company))
     );
-    // Also exclude anything the client already shown this session ("Get next 5" use case)
     excludeKeys.forEach((k) => seenKeys.add(k.toLowerCase()));
 
     const fresh = candidates.filter(
@@ -62,7 +65,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Step 0b: Load any existing feedback summary for this role/seniority
+    // 0b. Enrich each candidate with years_experience, years_in_role, company_summary
+    // Org enrichment is deduped by primary_domain so 50 candidates ≠ 50 API calls.
+    const orgSummaries = await enrichOrganizations(fresh);
+
+    const enrichedRaw: ApolloCandidate[] = fresh.map((c) => {
+      const years = calculateYears(c.employment_history);
+      const domain = c.organization?.primary_domain;
+      const company_summary = domain ? orgSummaries.get(domain) : undefined;
+      return { ...c, ...years, company_summary };
+    });
+
+    // 0c. Feedback summary lookup
     const { data: feedbackData } = await supabase
       .from("feedback_summary")
       .select("likes, dislikes")
@@ -74,12 +88,12 @@ export async function POST(req: NextRequest) {
       ? { likes: feedbackData.likes ?? "", dislikes: feedbackData.dislikes ?? "" }
       : undefined;
 
-    // Step 1: Ask Claude for top 8 (oversampling so we can enforce LinkedIn)
-    const top8 = await filterCandidates(fresh, role, company, 8, feedback);
+    // 1. Ask Claude for top 8 (oversampled for LinkedIn enforcement)
+    const top8 = await filterCandidates(enrichedRaw, role, company, 8, feedback);
 
-    // Step 2: Match each Claude pick back to the raw Apollo record (with id)
+    // 2. Match Claude's picks back to enriched Apollo records (with ids + years + website_url)
     const top8WithIds: ApolloCandidate[] = top8.map((filtered) => {
-      const match = fresh.find(
+      const match = enrichedRaw.find(
         (c) =>
           (c.current_employer ?? c.organization?.name ?? "") === filtered.employer &&
           c.title === filtered.title
@@ -96,24 +110,35 @@ export async function POST(req: NextRequest) {
       );
     });
 
-    // Step 3: Reveal all 8 (costs 8 credits) to surface LinkedIn URLs and emails
+    // 3. Reveal all 8 for real names/LinkedIn/website
     const revealed = await revealCandidates(top8WithIds);
 
-    // Step 4: Merge revealed data, prefer LinkedIn-having candidates, fall back if needed
-    const merged: FilteredCandidate[] = top8.map((c, i) => ({
-      ...c,
-      name: revealed[i]?.name ?? c.name,
-      email: revealed[i]?.email ?? "",
-      linkedin_url: revealed[i]?.linkedin_url ?? c.linkedin_url ?? "",
-      city: revealed[i]?.city ?? c.city,
-      photo_url: revealed[i]?.photo_url ?? c.photo_url,
-    }));
+    // 4. Merge revealed data + previously enriched fields. Re-compute years after reveal
+    //    (revealed entries often include richer employment_history).
+    const merged: FilteredCandidate[] = top8.map((c, i) => {
+      const r = revealed[i];
+      const refreshedYears = r ? calculateYears(r.employment_history) : {};
+      const baseYears = top8WithIds[i] ?? {};
+
+      return {
+        ...c,
+        name: r?.name ?? c.name,
+        email: r?.email ?? "",
+        linkedin_url: r?.linkedin_url ?? c.linkedin_url ?? "",
+        city: r?.city ?? c.city,
+        photo_url: r?.photo_url ?? c.photo_url,
+        website_url: r?.website_url ?? baseYears.website_url ?? undefined,
+        years_experience:
+          refreshedYears.years_experience ?? baseYears.years_experience ?? undefined,
+        years_in_role: refreshedYears.years_in_role ?? baseYears.years_in_role ?? undefined,
+      };
+    });
 
     const withLinkedIn = merged.filter((c) => c.linkedin_url && c.linkedin_url.trim() !== "");
     const withoutLinkedIn = merged.filter((c) => !c.linkedin_url || c.linkedin_url.trim() === "");
     const enriched = [...withLinkedIn, ...withoutLinkedIn].slice(0, 5);
 
-    // Step 5: Save the final 5 to Supabase (approved=null until feedback comes in)
+    // 5. Save the final 5 to Supabase
     const rows: Omit<CandidateRow, "id">[] = enriched.map((c) => ({
       name: c.name ?? null,
       title: c.title ?? null,
@@ -137,7 +162,6 @@ export async function POST(req: NextRequest) {
       console.error("[filter] Supabase insert failed:", insertError);
     }
 
-    // Attach the DB id + the dedup key (so the client can ask for "next 5" later)
     const withIds = enriched.map((c, i) => ({
       ...c,
       db_id: inserted?.[i]?.id ?? null,
