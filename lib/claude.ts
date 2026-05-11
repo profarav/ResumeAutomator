@@ -3,6 +3,7 @@ import { ApolloCandidate } from "./apollo";
 import { getCriteriaFor } from "./criteria";
 
 export interface FilteredCandidate {
+  index?: number;
   name: string;
   title: string;
   employer: string;
@@ -73,11 +74,13 @@ Given the following list of candidates for a ${role} position at ${company}, ret
 - Years of experience (years_experience) and tenure in current role (years_in_role) — prefer candidates with meaningful experience but flag job-hoppers (multiple short roles)
 
 For each candidate, write a 2-sentence summary of why they're a strong fit for a design agency environment.
+
+CRITICAL: Each candidate in your response MUST include the original "index" field from the input list. This is how we link your selection back to the source data. Copy the index exactly from the input.
 ${criteriaBlock}${feedbackBlock}
 Important: some candidates may have placeholder names like "Candidate 1" — keep the name exactly as given, do not invent real names.
 
 Return JSON only, no markdown, no code fences. The JSON must be a valid array of exactly ${pickCount} candidates:
-[{ "name": "...", "title": "...", "employer": "...", "linkedin_url": "...", "city": "...", "photo_url": "...", "summary": "..." }]
+[{ "index": 1, "name": "...", "title": "...", "employer": "...", "linkedin_url": "...", "city": "...", "photo_url": "...", "summary": "..." }]
 
 Candidates:
 ${JSON.stringify(list, null, 2)}`;

@@ -96,13 +96,26 @@ export async function POST(req: NextRequest) {
     // 1. Ask Claude for top 8 (oversampled for LinkedIn enforcement)
     const top8 = await filterCandidates(enrichedRaw, role, company, 8, feedback);
 
-    // 2. Match Claude's picks back to enriched Apollo records (with ids + years + website_url)
+    // 2. Match Claude's picks back to enriched Apollo records (with ids + years + website_url).
+    //    Primary match is by Claude-returned "index" (1-based into enrichedRaw). Fall back to
+    //    string-match if Claude omitted the index.
     const top8WithIds: ApolloCandidate[] = top8.map((filtered) => {
-      const match = enrichedRaw.find(
-        (c) =>
-          (c.current_employer ?? c.organization?.name ?? "") === filtered.employer &&
-          c.title === filtered.title
-      );
+      let match: ApolloCandidate | undefined;
+      if (typeof filtered.index === "number") {
+        match = enrichedRaw[filtered.index - 1];
+      }
+      if (!match) {
+        const target = (filtered.employer ?? "").trim().toLowerCase();
+        match = enrichedRaw.find(
+          (c) =>
+            (c.current_employer ?? c.organization?.name ?? "").trim().toLowerCase() === target &&
+            c.title === filtered.title
+        );
+      }
+      if (!match) {
+        // Last resort: title-only fuzzy match
+        match = enrichedRaw.find((c) => c.title === filtered.title);
+      }
       return (
         match ?? {
           name: filtered.name,
