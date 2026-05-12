@@ -27,6 +27,8 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [candidates, setCandidates] = useState<FilteredCandidate[]>([]);
   const [rawApollo, setRawApollo] = useState<ApolloCandidate[]>([]);
+  const [apolloPage, setApolloPage] = useState(1);
+  const [apolloExhausted, setApolloExhausted] = useState(false);
   const [shownDedupKeys, setShownDedupKeys] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
@@ -57,12 +59,37 @@ export default function Home() {
   function resetShortlist() {
     setCandidates([]);
     setRawApollo([]);
+    setApolloPage(1);
+    setApolloExhausted(false);
     setShownDedupKeys([]);
     setSelected(new Set());
     setEmails({});
     setFeedback({});
     setEmailStatus(null);
     setBannerMessage(null);
+  }
+
+  // Lowercased title|company match used to detect already-shown candidates
+  function dedupKeyFor(c: ApolloCandidate): string {
+    return `${(c.title ?? "").trim().toLowerCase()}|${(
+      c.current_employer ?? c.organization?.name ?? ""
+    )
+      .trim()
+      .toLowerCase()}`;
+  }
+
+  async function fetchApolloPage(page: number): Promise<ApolloCandidate[]> {
+    const res = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, seniority, location, keywords, technologies, page }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error ?? "Search failed");
+    }
+    const { candidates }: { candidates: ApolloCandidate[] } = await res.json();
+    return candidates ?? [];
   }
 
   function handleCompanyChange(c: string) {
@@ -130,19 +157,10 @@ export default function Home() {
     resetShortlist();
 
     try {
-      const searchRes = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, seniority, location, keywords, technologies }),
-      });
-
-      if (!searchRes.ok) {
-        const err = await searchRes.json();
-        throw new Error(err.error ?? "Search failed");
-      }
-
-      const { candidates: raw }: { candidates: ApolloCandidate[] } = await searchRes.json();
+      const raw = await fetchApolloPage(1);
       setRawApollo(raw);
+      setApolloPage(1);
+      setApolloExhausted(raw.length < 50);
 
       await runFilter(raw, [], false);
     } catch (error) {
@@ -159,7 +177,45 @@ export default function Home() {
     setBannerMessage(null);
 
     try {
-      await runFilter(rawApollo, shownDedupKeys, true);
+      let pool = rawApollo;
+      let exhausted = apolloExhausted;
+      let currentPage = apolloPage;
+
+      // How many candidates in the existing pool haven't been shown yet?
+      const seen = new Set(shownDedupKeys.map((k) => k.toLowerCase()));
+      const countUnseen = () => pool.filter((c) => !seen.has(dedupKeyFor(c))).length;
+
+      // If the unseen pool is thin (< 12) and Apollo has more pages, prefetch
+      // until we have enough OR we hit the end of Apollo's results.
+      const MIN_FRESH = 12;
+      while (countUnseen() < MIN_FRESH && !exhausted) {
+        currentPage += 1;
+        const next = await fetchApolloPage(currentPage);
+        if (next.length === 0) {
+          exhausted = true;
+          break;
+        }
+        pool = [...pool, ...next];
+        if (next.length < 50) exhausted = true;
+      }
+
+      setRawApollo(pool);
+      setApolloPage(currentPage);
+      setApolloExhausted(exhausted);
+
+      await runFilter(pool, shownDedupKeys, true);
+
+      // If runFilter set the "no new candidates" banner and Apollo is exhausted,
+      // make the message clearer.
+      if (exhausted) {
+        const seenSet = new Set(shownDedupKeys.map((k) => k.toLowerCase()));
+        const stillUnseen = pool.filter((c) => !seenSet.has(dedupKeyFor(c))).length;
+        if (stillUnseen === 0) {
+          setBannerMessage(
+            "Apollo has no more candidates for these filters. Try changing location, keywords, or seniority."
+          );
+        }
+      }
     } catch (error) {
       console.error(error);
       setEmailStatus(`✗ ${error instanceof Error ? error.message : "Failed to get more"}`);

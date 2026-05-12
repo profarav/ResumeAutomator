@@ -377,7 +377,8 @@ export async function searchCandidates(
   seniority: string,
   location?: string,
   keywords?: string,
-  technologyUids?: string[]
+  technologyUids?: string[],
+  page: number = 1
 ): Promise<ApolloCandidate[]> {
   const locations = location
     ?.split(",")
@@ -388,7 +389,7 @@ export async function searchCandidates(
     person_titles: [role],
     person_seniorities: [seniority.toLowerCase()],
     per_page: 50,
-    page: 1,
+    page: Math.max(1, Math.floor(page)),
   };
 
   if (locations && locations.length > 0) {
