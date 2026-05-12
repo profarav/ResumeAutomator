@@ -4,7 +4,9 @@ import { google } from "googleapis";
 import { FilteredCandidate } from "./claude";
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID ?? "1hnuOXlV7aGcFH85Zy2ci4Wh8tY2R02HWMVdnX_2B3K8";
-const RANGE = "Sheet1!A:I"; // Name | Title | Company | Location | LinkedIn URL | Email | Role | Seniority | Date
+const TAB_NAME = process.env.GOOGLE_SHEET_TAB_NAME ?? "Sheet1";
+// Sheet tab names containing spaces or special chars must be wrapped in single quotes
+const RANGE = `'${TAB_NAME}'!A:I`; // Name | Title | Company | Location | LinkedIn | Email | Role | Seniority | Date
 
 let cachedClient: ReturnType<typeof google.sheets> | null = null;
 
