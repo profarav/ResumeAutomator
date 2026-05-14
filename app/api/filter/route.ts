@@ -20,6 +20,7 @@ function extractDomainSafe(url: string | null | undefined): string | null {
 }
 import { supabase, CandidateRow } from "@/lib/supabase";
 import { appendCandidates } from "@/lib/sheets";
+import { findPortfolio } from "@/lib/portfolio";
 
 export const maxDuration = 60;
 
@@ -184,7 +185,31 @@ export async function POST(req: NextRequest) {
 
     const withLinkedIn = merged.filter((c) => c.linkedin_url && c.linkedin_url.trim() !== "");
     const withoutLinkedIn = merged.filter((c) => !c.linkedin_url || c.linkedin_url.trim() === "");
-    const enriched = [...withLinkedIn, ...withoutLinkedIn].slice(0, 5);
+    const enrichedPreBio = [...withLinkedIn, ...withoutLinkedIn].slice(0, 5);
+
+    // 4b. Portfolio finder — pattern match on LinkedIn slug, fallback to Serper.
+    //     Only runs for candidates Apollo didn't already give us a website_url for.
+    //     All 5 lookups run in parallel; each is bounded by per-step timeouts.
+    const portfolioResults = await Promise.all(
+      enrichedPreBio.map(async (c) => {
+        if (c.website_url && c.website_url.trim() !== "") return c.website_url;
+        try {
+          return await findPortfolio({
+            name: c.name,
+            linkedin_url: c.linkedin_url,
+            current_employer: c.employer,
+          });
+        } catch (err) {
+          console.warn(`[filter] portfolio finder failed for ${c.name}:`, err);
+          return null;
+        }
+      })
+    );
+
+    const enriched = enrichedPreBio.map((c, i) => ({
+      ...c,
+      website_url: portfolioResults[i] ?? c.website_url ?? "",
+    }));
 
     // 5. Save the final 5 to Supabase
     const rows: Omit<CandidateRow, "id">[] = enriched.map((c) => ({
