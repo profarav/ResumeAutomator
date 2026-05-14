@@ -4,8 +4,29 @@
 //
 // Runs after the Apollo reveal step so we have real names + LinkedIn URLs.
 
-const PATTERN_HEAD_TIMEOUT_MS = 2500;
+const PATTERN_FETCH_TIMEOUT_MS = 3500;
 const SERPER_TIMEOUT_MS = 6000;
+const MAX_BODY_BYTES = 30_000;
+
+// Phrases that indicate the page is a parked domain, sale page, or platform-level
+// "user not found" stub rather than an actual portfolio
+const REJECT_SIGNALS = [
+  "buy this domain",
+  "domain for sale",
+  "make an offer on this domain",
+  "this domain is for sale",
+  "godaddy.com",
+  "sedo.com",
+  "afternic.com",
+  "user not found",
+  "page not found",
+  "doesn't exist",
+  "does not exist",
+  "create your bento",
+  "claim your bento",
+  "claim this username",
+  "sign up for free",
+];
 
 // Domains we consider "real portfolios" when filtering Serper results
 const RELEVANT_PORTFOLIO_DOMAINS = [
@@ -31,16 +52,50 @@ export function extractLinkedInSlug(url: string | null | undefined): string | nu
 
 // --- Step A: pattern match -----------------------------------------------
 
-async function tryHead(url: string): Promise<boolean> {
+// GET the URL, read up to ~30KB of body, then verify it actually belongs to
+// the candidate (their name appears) and isn't a parked-domain / platform-stub page.
+async function fetchAndVerify(url: string, candidateName: string): Promise<boolean> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PATTERN_HEAD_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), PATTERN_FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
-      method: "HEAD",
+      method: "GET",
       signal: controller.signal,
       redirect: "follow",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; KlimtRecruiterBot/1.0; +https://klimt.design)",
+        Accept: "text/html",
+      },
     });
-    return res.ok;
+    if (!res.ok || !res.body) return false;
+
+    // Stream up to MAX_BODY_BYTES and decode incrementally — most portfolio
+    // pages have all their identity signals in the <head> + first viewport.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let html = "";
+    while (html.length < MAX_BODY_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += decoder.decode(value, { stream: true });
+    }
+    try {
+      await reader.cancel();
+    } catch {
+      /* ignore */
+    }
+
+    const lower = html.toLowerCase();
+    const nameTokens = candidateName
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length >= 3);
+
+    const hasName = nameTokens.some((t) => lower.includes(t));
+    const isJunk = REJECT_SIGNALS.some((s) => lower.includes(s));
+
+    return hasName && !isJunk;
   } catch {
     return false;
   } finally {
@@ -48,8 +103,8 @@ async function tryHead(url: string): Promise<boolean> {
   }
 }
 
-export async function findByPattern(slug: string): Promise<string | null> {
-  if (!slug) return null;
+export async function findByPattern(slug: string, candidateName: string): Promise<string | null> {
+  if (!slug || !candidateName) return null;
 
   const urls = [
     `https://${slug}.design`,
@@ -58,9 +113,9 @@ export async function findByPattern(slug: string): Promise<string | null> {
     `https://layers.to/${slug}`,
   ];
 
-  // Fire all four in parallel, return the first 200 OK in priority order
+  // Fire all four in parallel and verify content. Return the first match in priority order.
   const results = await Promise.all(
-    urls.map(async (url) => ({ url, ok: await tryHead(url) }))
+    urls.map(async (url) => ({ url, ok: await fetchAndVerify(url, candidateName) }))
   );
   return results.find((r) => r.ok)?.url ?? null;
 }
@@ -152,7 +207,7 @@ export async function findPortfolio(input: {
   // Step A: try pattern matching against the LinkedIn slug
   const slug = extractLinkedInSlug(input.linkedin_url);
   if (slug) {
-    const patternMatch = await findByPattern(slug);
+    const patternMatch = await findByPattern(slug, input.name);
     if (patternMatch) return patternMatch;
   }
 
