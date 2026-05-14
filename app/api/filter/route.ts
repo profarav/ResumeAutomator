@@ -167,6 +167,13 @@ export async function POST(req: NextRequest) {
       const refreshedYears = r ? calculateYears(r.employment_history) : {};
       const baseYears = top8WithIds[i] ?? {};
 
+      // Hard-truncate the LinkedIn note in case Claude went over the 180 char target
+      const noteTrimmed = c.linkedin_note
+        ? c.linkedin_note.length > 200
+          ? c.linkedin_note.slice(0, 197).trimEnd() + "…"
+          : c.linkedin_note
+        : undefined;
+
       return {
         ...c,
         name: r?.name ?? c.name,
@@ -174,6 +181,7 @@ export async function POST(req: NextRequest) {
         linkedin_url: r?.linkedin_url ?? c.linkedin_url ?? "",
         city: r?.city ?? c.city,
         photo_url: r?.photo_url ?? c.photo_url,
+        linkedin_note: noteTrimmed,
         website_url: r?.website_url ?? baseYears.website_url ?? undefined,
         years_experience:
           refreshedYears.years_experience ?? baseYears.years_experience ?? undefined,

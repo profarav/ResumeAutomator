@@ -37,6 +37,11 @@ export default function Home() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const [linkedinWeekly, setLinkedinWeekly] = useState({
+    count: 0,
+    warningThreshold: 80,
+    hardLimit: 100,
+  });
 
   useEffect(() => {
     (async () => {
@@ -55,6 +60,50 @@ export default function Home() {
       }
     })();
   }, []);
+
+  // Load current weekly LinkedIn click count on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/linkedin-click");
+        const data = await res.json();
+        setLinkedinWeekly({
+          count: data.weeklyCount ?? 0,
+          warningThreshold: data.warningThreshold ?? 80,
+          hardLimit: data.hardLimit ?? 100,
+        });
+      } catch (err) {
+        console.error("Failed to load LinkedIn click count:", err);
+      }
+    })();
+  }, []);
+
+  async function handleLinkedInConnect(index: number) {
+    const candidate = candidates[index];
+    if (!candidate?.linkedin_url) return;
+
+    try {
+      const res = await fetch("/api/linkedin-click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidate_id: candidate.db_id ?? null,
+          candidate_name: candidate.name,
+          candidate_linkedin_url: candidate.linkedin_url,
+        }),
+      });
+      const data = await res.json();
+      if (typeof data.weeklyCount === "number") {
+        setLinkedinWeekly({
+          count: data.weeklyCount,
+          warningThreshold: data.warningThreshold ?? 80,
+          hardLimit: data.hardLimit ?? 100,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to record LinkedIn click:", err);
+    }
+  }
 
   function resetShortlist() {
     setCandidates([]);
@@ -339,6 +388,23 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {(() => {
+              const { count, warningThreshold, hardLimit } = linkedinWeekly;
+              const tone =
+                count >= hardLimit
+                  ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800"
+                  : count >= warningThreshold
+                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+                  : "bg-zinc-50 text-zinc-600 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800";
+              return (
+                <span
+                  className={`text-xs font-medium border px-3 py-1 rounded-full ${tone}`}
+                  title={`${count} LinkedIn connection clicks this week. Warning at ${warningThreshold}, hard cap at ${hardLimit}.`}
+                >
+                  LinkedIn {count}/{hardLimit}
+                </span>
+              );
+            })()}
             <ThemeToggle />
             <Link
               href="/settings"
@@ -400,11 +466,13 @@ export default function Home() {
           loading={loading}
           sendingEmail={sendingEmail}
           emailStatus={emailStatus}
+          linkedinLimitReached={linkedinWeekly.count >= linkedinWeekly.hardLimit}
           onToggle={handleToggle}
           onEmailChange={(i, val) => setEmails((prev) => ({ ...prev, [i]: val }))}
           onFeedbackChange={(i, next) => setFeedback((prev) => ({ ...prev, [i]: next }))}
           onFeedbackSubmit={handleFeedbackSubmit}
           onSendOutreach={handleSendOutreach}
+          onLinkedInConnect={handleLinkedInConnect}
         />
       </main>
     </div>

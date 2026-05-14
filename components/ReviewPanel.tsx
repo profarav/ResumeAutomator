@@ -38,11 +38,13 @@ interface ReviewPanelProps {
   loading: boolean;
   sendingEmail: boolean;
   emailStatus: string | null;
+  linkedinLimitReached: boolean;
   onToggle: (index: number) => void;
   onEmailChange: (index: number, email: string) => void;
   onFeedbackChange: (index: number, next: FeedbackState) => void;
   onFeedbackSubmit: (index: number) => void;
   onSendOutreach: () => void;
+  onLinkedInConnect: (index: number) => void;
 }
 
 export default function ReviewPanel({
@@ -53,11 +55,13 @@ export default function ReviewPanel({
   loading,
   sendingEmail,
   emailStatus,
+  linkedinLimitReached,
   onToggle,
   onEmailChange,
   onFeedbackChange,
   onFeedbackSubmit,
   onSendOutreach,
+  onLinkedInConnect,
 }: ReviewPanelProps) {
   if (!loading && candidates.length === 0) return null;
 
@@ -84,10 +88,12 @@ export default function ReviewPanel({
                 email={emails[i] ?? ""}
                 selected={selected.has(i)}
                 feedback={feedback[i] ?? { vote: null, text: "", submitted: false, submitting: false }}
+                linkedinLimitReached={linkedinLimitReached}
                 onToggle={() => onToggle(i)}
                 onEmailChange={(val) => onEmailChange(i, val)}
                 onFeedbackChange={(next) => onFeedbackChange(i, next)}
                 onFeedbackSubmit={() => onFeedbackSubmit(i)}
+                onLinkedInConnect={() => onLinkedInConnect(i)}
               />
             ))}
       </div>

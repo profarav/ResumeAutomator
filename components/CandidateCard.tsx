@@ -27,10 +27,12 @@ interface CandidateCardProps {
   email: string;
   selected: boolean;
   feedback: FeedbackState;
+  linkedinLimitReached: boolean;
   onToggle: () => void;
   onEmailChange: (email: string) => void;
   onFeedbackChange: (next: FeedbackState) => void;
   onFeedbackSubmit: () => void;
+  onLinkedInConnect: () => void;
 }
 
 export default function CandidateCard({
@@ -38,12 +40,15 @@ export default function CandidateCard({
   email,
   selected,
   feedback,
+  linkedinLimitReached,
   onToggle,
   onEmailChange,
   onFeedbackChange,
   onFeedbackSubmit,
+  onLinkedInConnect,
 }: CandidateCardProps) {
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+  const [connectState, setConnectState] = useState<"idle" | "copied">("idle");
 
   const initials = candidate.name
     .split(" ")
@@ -60,6 +65,26 @@ export default function CandidateCard({
     if (feedback.submitted) return;
     onFeedbackChange({ ...feedback, vote });
     setShowFeedbackInput(true);
+  }
+
+  async function handleConnect() {
+    if (!candidate.linkedin_url || linkedinLimitReached) return;
+
+    const note = candidate.linkedin_note ?? "";
+    try {
+      if (note && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(note);
+      }
+    } catch (err) {
+      console.warn("[card] clipboard write failed:", err);
+    }
+
+    window.open(candidate.linkedin_url, "_blank", "noopener,noreferrer");
+
+    setConnectState("copied");
+    setTimeout(() => setConnectState("idle"), 2500);
+
+    onLinkedInConnect();
   }
 
   const inputCls =
@@ -107,7 +132,18 @@ export default function CandidateCard({
             {initials}
           </div>
           <div className="min-w-0">
-            <p className="text-zinc-900 dark:text-zinc-100 font-semibold text-sm truncate">{candidate.name}</p>
+            {candidate.linkedin_url ? (
+              <a
+                href={candidate.linkedin_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-900 dark:text-zinc-100 font-semibold text-sm truncate block hover:underline"
+              >
+                {candidate.name}
+              </a>
+            ) : (
+              <p className="text-zinc-900 dark:text-zinc-100 font-semibold text-sm truncate">{candidate.name}</p>
+            )}
             <p className="text-zinc-600 dark:text-zinc-400 text-xs truncate mt-0.5">{candidate.title}</p>
           </div>
         </div>
@@ -176,19 +212,48 @@ export default function CandidateCard({
           />
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
+        {candidate.linkedin_note && (
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-500 leading-snug italic border-l-2 border-zinc-200 dark:border-zinc-800 pl-2 line-clamp-3">
+            {candidate.linkedin_note}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 pt-1 flex-wrap">
           {candidate.linkedin_url && (
-            <a
-              href={candidate.linkedin_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 hover:text-zinc-900 dark:hover:border-zinc-500 dark:hover:text-zinc-200 transition-colors"
+            <button
+              onClick={handleConnect}
+              disabled={linkedinLimitReached}
+              title={
+                linkedinLimitReached
+                  ? "Weekly LinkedIn limit reached"
+                  : candidate.linkedin_note
+                  ? `Copies: "${candidate.linkedin_note}"`
+                  : "Copies the note and opens their LinkedIn profile"
+              }
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                linkedinLimitReached
+                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border border-zinc-200 dark:border-zinc-700 cursor-not-allowed"
+                  : connectState === "copied"
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700"
+                  : "bg-[#0a66c2] text-white border border-[#0a66c2] hover:bg-[#084d96]"
+              }`}
             >
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-              </svg>
-              LinkedIn
-            </a>
+              {connectState === "copied" ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied · opening
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                  </svg>
+                  Connect
+                </>
+              )}
+            </button>
           )}
           {portfolioHref && (
             <a

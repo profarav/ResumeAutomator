@@ -11,6 +11,7 @@ export interface FilteredCandidate {
   city: string;
   photo_url: string;
   summary: string;
+  linkedin_note?: string;
   email?: string;
   website_url?: string;
   years_experience?: number;
@@ -87,12 +88,28 @@ BAD (do not write like this):
 
 Be specific. Use the title, employer, and company_summary to ground the description. Don't pad with adjectives. If you genuinely don't know what they do, say "[Title] at [Company]." and stop.
 
+ALSO generate a "linkedin_note" field for each candidate — a short LinkedIn connection request note:
+- HARD LIMIT: 180 characters. Under no circumstances exceed this.
+- Casual, peer-to-peer tone. NO recruiter-speak ("I came across", "exciting opportunity", "I'd love to").
+- Start with "Hey [first name],"
+- Reference something specific about their current company or work (use the company_description / company_industry as context, but mention naturally — don't paste the description verbatim)
+- End with a short hook like "Building ${company} and wanted to connect." or "Running ${company} over here, would be great to chat."
+
+GOOD examples:
+- "Hey Sarah, saw your brand work at Pentagram — clean stuff. Building Klimt & Design and wanted to connect."
+- "Hey Mike, your campaign work at WhitePeak caught my eye. Running Primer over here, would be great to chat."
+
+BAD examples (do not write like this):
+- "Hi Sarah, I came across your impressive background and would love to discuss an exciting opportunity..."
+- "We're looking for a Senior Visual Designer at our agency..."
+- Anything longer than 180 chars
+
 CRITICAL: Each candidate in your response MUST include the original "index" field from the input list. This is how we link your selection back to the source data. Copy the index exactly from the input.
 ${criteriaBlock}${feedbackBlock}
 Important: some candidates may have placeholder names like "Candidate 1" — keep the name exactly as given, do not invent real names.
 
 Return JSON only, no markdown, no code fences. The JSON must be a valid array of exactly ${pickCount} candidates:
-[{ "index": 1, "name": "...", "title": "...", "employer": "...", "linkedin_url": "...", "city": "...", "photo_url": "...", "summary": "..." }]
+[{ "index": 1, "name": "...", "title": "...", "employer": "...", "linkedin_url": "...", "city": "...", "photo_url": "...", "summary": "...", "linkedin_note": "..." }]
 
 Candidates:
 ${JSON.stringify(list, null, 2)}`;
