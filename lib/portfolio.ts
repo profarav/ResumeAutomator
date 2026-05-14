@@ -132,6 +132,27 @@ interface SerperResponse {
   organic?: SerperOrganicResult[];
 }
 
+// Domains we never want to surface as a portfolio (they're noise even if Serper ranks them)
+const BLOCKED_DOMAINS = [
+  "linkedin.com",
+  "indeed.com",
+  "glassdoor.com",
+  "ziprecruiter.com",
+  "monster.com",
+  "wikipedia.org",
+  "facebook.com",
+  "twitter.com",
+  "x.com",
+  "instagram.com",
+  "youtube.com",
+  "crunchbase.com",
+  "rocketreach.co",
+  "zoominfo.com",
+  "apollo.io",
+  "github.com",
+  "medium.com",
+];
+
 export async function findBySerper(
   name: string,
   employer: string | null | undefined
@@ -142,8 +163,10 @@ export async function findBySerper(
     return null;
   }
 
-  const employerPart = employer ? `${employer} ` : "";
-  const query = `"${name}" ${employerPart}(portfolio OR site:behance.net OR site:dribbble.com)`;
+  // Broader query — "portfolio" or "design" as a soft hint, employer for disambiguation.
+  // Tight quotes around the full name help Google bind both tokens.
+  const employerPart = employer ? ` ${employer}` : "";
+  const query = `"${name}"${employerPart} portfolio`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SERPER_TIMEOUT_MS);
@@ -155,39 +178,75 @@ export async function findBySerper(
         "X-API-KEY": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ q: query, num: 3 }),
+      body: JSON.stringify({ q: query, num: 10 }),
       signal: controller.signal,
     });
 
     if (!res.ok) {
-      console.warn(`[portfolio] Serper returned ${res.status}`);
+      console.warn(`[portfolio] Serper returned ${res.status} for "${name}"`);
       return null;
     }
 
     const data: SerperResponse = await res.json();
-    const top3 = (data.organic ?? []).slice(0, 3);
-    if (top3.length === 0) return null;
+    const organic = data.organic ?? [];
+    if (organic.length === 0) {
+      console.log(`[portfolio] Serper returned 0 organic results for "${name}"`);
+      return null;
+    }
 
-    // Filter for results that are on relevant portfolio platforms or contain the candidate's name
     const nameTokens = name
       .toLowerCase()
       .split(/\s+/)
       .filter((t) => t.length >= 3);
+    const firstName = nameTokens[0] ?? "";
+    const lastName = nameTokens[nameTokens.length - 1] ?? "";
 
-    for (const result of top3) {
-      const link = (result.link ?? "").toLowerCase();
+    // First pass: prefer results on known portfolio platforms whose title/snippet
+    // mentions the candidate. Second pass: any result whose title/snippet mentions
+    // the candidate and whose domain isn't on the block list.
+    const candidates: { url: string; score: number }[] = [];
+
+    for (const result of organic.slice(0, 10)) {
+      const link = result.link ?? "";
+      const linkLower = link.toLowerCase();
       if (!link) continue;
 
-      const hasRelevantDomain = RELEVANT_PORTFOLIO_DOMAINS.some((d) => link.includes(d));
-      const hasNameInUrl = nameTokens.some((t) => link.includes(t));
+      // Hard block: jobs / social / data brokers
+      if (BLOCKED_DOMAINS.some((d) => linkLower.includes(d))) continue;
 
-      if (hasRelevantDomain || hasNameInUrl) {
-        return result.link!;
-      }
+      const haystack = [
+        result.title ?? "",
+        result.snippet ?? "",
+        link,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const mentionsFirst = firstName && haystack.includes(firstName);
+      const mentionsLast = lastName && haystack.includes(lastName);
+      const mentionsName = mentionsFirst && mentionsLast;
+      if (!mentionsName) continue;
+
+      let score = 1;
+      if (RELEVANT_PORTFOLIO_DOMAINS.some((d) => linkLower.includes(d))) score += 10;
+      if (linkLower.includes("portfolio") || haystack.includes("portfolio")) score += 2;
+      // Personal domains often contain the candidate's name in the host
+      if (firstName && linkLower.includes(firstName)) score += 3;
+      if (lastName && linkLower.includes(lastName)) score += 3;
+
+      candidates.push({ url: link, score });
     }
-    return null;
+
+    if (candidates.length === 0) {
+      console.log(`[portfolio] Serper found ${organic.length} results for "${name}" but none matched`);
+      return null;
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    console.log(`[portfolio] Serper picked ${candidates[0].url} for "${name}" (score ${candidates[0].score})`);
+    return candidates[0].url;
   } catch (err) {
-    console.warn("[portfolio] Serper request failed:", err);
+    console.warn(`[portfolio] Serper request failed for "${name}":`, err);
     return null;
   } finally {
     clearTimeout(timer);
@@ -208,9 +267,16 @@ export async function findPortfolio(input: {
   const slug = extractLinkedInSlug(input.linkedin_url);
   if (slug) {
     const patternMatch = await findByPattern(slug, input.name);
-    if (patternMatch) return patternMatch;
+    if (patternMatch) {
+      console.log(`[portfolio] pattern match for ${input.name}: ${patternMatch}`);
+      return patternMatch;
+    }
   }
 
   // Step B: fall back to Serper
-  return await findBySerper(input.name, input.current_employer);
+  const serperMatch = await findBySerper(input.name, input.current_employer);
+  if (!serperMatch) {
+    console.log(`[portfolio] no portfolio found for ${input.name}`);
+  }
+  return serperMatch;
 }
