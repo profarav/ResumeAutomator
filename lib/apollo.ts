@@ -459,7 +459,10 @@ export async function revealCandidates(
   }
 
   const data = await response.json();
-  const matches: ApolloCandidate[] = data?.matches ?? [];
+  // Apollo returns null entries in `matches` for people it couldn't resolve
+  const matches: ApolloCandidate[] = (data?.matches ?? []).filter(
+    (m: ApolloCandidate | null): m is ApolloCandidate => m != null && Boolean(m.id)
+  );
 
   const revealedById = new Map(matches.map((m) => [m.id, m]));
 

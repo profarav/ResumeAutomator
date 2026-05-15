@@ -243,8 +243,23 @@ export async function findBySerper(
     }
 
     candidates.sort((a, b) => b.score - a.score);
-    console.log(`[portfolio] Serper picked ${candidates[0].url} for "${name}" (score ${candidates[0].score})`);
-    return candidates[0].url;
+
+    // Content-verify the top picks (up to 3) the same way pattern match does —
+    // fetch the page and confirm the candidate's name actually appears and it
+    // isn't a parked domain / "user not found" stub. First verified wins.
+    for (const cand of candidates.slice(0, 3)) {
+      const ok = await fetchAndVerify(cand.url, name);
+      if (ok) {
+        console.log(
+          `[portfolio] Serper picked ${cand.url} for "${name}" (score ${cand.score}, content-verified)`
+        );
+        return cand.url;
+      }
+      console.log(`[portfolio] Serper candidate ${cand.url} for "${name}" failed content check`);
+    }
+
+    console.log(`[portfolio] Serper had ${candidates.length} candidates for "${name}" but none passed content verification`);
+    return null;
   } catch (err) {
     console.warn(`[portfolio] Serper request failed for "${name}":`, err);
     return null;

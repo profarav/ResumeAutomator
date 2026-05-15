@@ -167,12 +167,15 @@ export async function POST(req: NextRequest) {
       const refreshedYears = r ? calculateYears(r.employment_history) : {};
       const baseYears = top8WithIds[i] ?? {};
 
-      // Hard-truncate the LinkedIn note in case Claude went over the 180 char target
-      const noteTrimmed = c.linkedin_note
-        ? c.linkedin_note.length > 200
-          ? c.linkedin_note.slice(0, 197).trimEnd() + "…"
-          : c.linkedin_note
-        : undefined;
+      // LinkedIn note: trim Claude's note to <200 chars, OR synthesize a
+      // fallback so the Connect button always has something to copy.
+      const rawNote = c.linkedin_note?.trim();
+      const firstName = (r?.name ?? c.name ?? "").split(/\s+/)[0] || "there";
+      const employerName = c.employer || "your company";
+      const fallbackNote = `Hey ${firstName}, came across your work at ${employerName} — really like it. Building ${company} and wanted to connect.`;
+      const chosenNote = rawNote && rawNote.length > 0 ? rawNote : fallbackNote;
+      const noteTrimmed =
+        chosenNote.length > 200 ? chosenNote.slice(0, 197).trimEnd() + "…" : chosenNote;
 
       return {
         ...c,
