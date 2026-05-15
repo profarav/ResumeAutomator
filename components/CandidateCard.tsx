@@ -67,23 +67,26 @@ export default function CandidateCard({
     setShowFeedbackInput(true);
   }
 
-  async function handleConnect() {
-    if (!candidate.linkedin_url || linkedinLimitReached) return;
-
+  async function copyNote() {
     const note = candidate.linkedin_note ?? "";
+    if (!note) return;
     try {
-      if (note && navigator.clipboard?.writeText) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(note);
+        setConnectState("copied");
+        setTimeout(() => setConnectState("idle"), 2000);
       }
     } catch (err) {
       console.warn("[card] clipboard write failed:", err);
     }
+  }
 
+  async function handleConnect() {
+    if (!candidate.linkedin_url || linkedinLimitReached) return;
+
+    // Copy the note as a convenience, then open LinkedIn
+    await copyNote();
     window.open(candidate.linkedin_url, "_blank", "noopener,noreferrer");
-
-    setConnectState("copied");
-    setTimeout(() => setConnectState("idle"), 2500);
-
     onLinkedInConnect();
   }
 
@@ -213,8 +216,39 @@ export default function CandidateCard({
         </div>
 
         {candidate.linkedin_note && (
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-500 leading-snug italic border-l-2 border-zinc-200 dark:border-zinc-800 pl-2 line-clamp-3">
-            {candidate.linkedin_note}
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-2.5 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                Connection note
+              </span>
+              <button
+                onClick={copyNote}
+                className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded transition-colors ${
+                  connectState === "copied"
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100"
+                }`}
+              >
+                {connectState === "copied" ? (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-snug">
+              {candidate.linkedin_note}
+            </p>
           </div>
         )}
 
@@ -226,33 +260,18 @@ export default function CandidateCard({
               title={
                 linkedinLimitReached
                   ? "Weekly LinkedIn limit reached"
-                  : candidate.linkedin_note
-                  ? `Copies: "${candidate.linkedin_note}"`
-                  : "Copies the note and opens their LinkedIn profile"
+                  : "Copies the note and opens their LinkedIn profile in a new tab"
               }
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                 linkedinLimitReached
                   ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border border-zinc-200 dark:border-zinc-700 cursor-not-allowed"
-                  : connectState === "copied"
-                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700"
                   : "bg-[#0a66c2] text-white border border-[#0a66c2] hover:bg-[#084d96]"
               }`}
             >
-              {connectState === "copied" ? (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied · opening
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                  </svg>
-                  Connect
-                </>
-              )}
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+              </svg>
+              {linkedinLimitReached ? "Limit reached" : "Connect"}
             </button>
           )}
           {portfolioHref && (
